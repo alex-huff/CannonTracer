@@ -1,0 +1,9 @@
+name: CannonTracer
+version: "1.0"
+description: EntityTracer rewrite
+author: phonis
+main: phonis.cannontracer.CannonTracer
+commands:
+  tracer:
+    aliases: [t]
+    description: Base command for plugin

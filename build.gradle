@@ -1,0 +1,27 @@
+group 'phonis'
+version '1.0'
+
+repositories {
+    // you must run BuildTools.jar for maven to be able to locate the necessary dependencies.
+    // --rev 1.8.8
+    mavenLocal()
+}
+
+apply plugin: 'java'
+
+dependencies {
+    compileOnly 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    archiveBaseName.set('CannonTracer')
+    archiveVersion.set('')
+
+    from('src/main') {
+        include 'plugin.yml'
+    }
+}
