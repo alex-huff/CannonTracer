@@ -9,6 +9,10 @@ import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.*;
 import phonis.cannontracer.CannonTracer;
+import phonis.cannontracer.networking.CTAdapter;
+import phonis.cannontracer.networking.CTLine;
+import phonis.cannontracer.networking.CTManager;
+import phonis.cannontracer.networking.CTNewLines;
 import phonis.cannontracer.serializable.TracerUser;
 import phonis.cannontracer.trace.*;
 
@@ -141,7 +145,7 @@ public class Tick implements Runnable {
         }
     }
 
-    private void handleTraces(List<Trace> traces, TracerUser tu) {
+    private void handleTraces(List<Trace> traces, TracerUser tu, boolean isSubscribed, Player player) {
         Map<LineEq, LineSet> culledLines = new HashMap<>();
 
         for (Trace trace : traces) {
@@ -156,10 +160,20 @@ public class Tick implements Runnable {
             }
         }
 
+        List<CTLine> totalLines = new ArrayList<>();
+
         for (LineEq lineEq : culledLines.keySet()) {
             for (Line line : culledLines.get(lineEq)) {
-                tu.addLine(line);
+                if (isSubscribed) {
+                    totalLines.add(CTAdapter.fromLine(line, tu.getTraceTime()));
+                } else {
+                    tu.addLine(line);
+                }
             }
+        }
+
+        if (isSubscribed) {
+            CTManager.sendToPlayer(player, new CTNewLines(totalLines));
         }
     }
 
@@ -238,10 +252,14 @@ public class Tick implements Runnable {
                         }
                     }
 
-                    this.handleTraces(traces, tu);
+                    boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
 
-                    tu.updateRadius(player.getLocation());
-                    this.sendPackets(tu, player);
+                    this.handleTraces(traces, tu, isSubscribed, player);
+
+                    if (!isSubscribed) {
+                        tu.updateRadius(player.getLocation());
+                        this.sendPackets(tu, player);
+                    }
                 }
             }
         }

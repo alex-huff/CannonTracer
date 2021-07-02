@@ -3,6 +3,7 @@ package phonis.cannontracer.serializable;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import phonis.cannontracer.CannonTracer;
+import phonis.cannontracer.networking.CTManager;
 import phonis.cannontracer.trace.Line;
 import phonis.cannontracer.trace.ParticleLocation;
 import phonis.cannontracer.trace.ParticleLocationComparator;

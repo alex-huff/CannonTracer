@@ -4,6 +4,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import phonis.cannontracer.CannonTracer;
+import phonis.cannontracer.serializable.TracerUser;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,7 +34,9 @@ public class CTListener implements PluginMessageListener {
                 System.out.println(player.getName() + " is using an unsupported version.");
             } else {
                 player.sendMessage("Thank you for using Cannon Tracer client.");
+                TracerUser.getUser(player.getUniqueId()).clearParticles();
                 CTManager.addToSubscribed(player.getUniqueId());
+                CTManager.sendToPlayer(player, new CTSetWorld(player.getWorld().getUID()));
                 System.out.println(player.getName() + " is using the modded client.");
             }
         }

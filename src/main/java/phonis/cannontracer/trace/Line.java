@@ -16,7 +16,7 @@ public class Line {
     private final boolean connected;
     private final Vector direction;
     private final LineEq lineEq;
-    private final Set<Artifact> artifacts = new HashSet<>();
+    public final Set<Artifact> artifacts = new HashSet<>();
 
     public Line(Location start, Location finish, ParticleType type, ParticleType startType, ParticleType finishType, OffsetType startOffsetType, OffsetType finishOffsetType, boolean connected) {
         this.start = start;

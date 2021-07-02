@@ -1,10 +1,13 @@
 package phonis.cannontracer;
 
 import org.bukkit.Bukkit;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import phonis.cannontracer.commands.CommandTracer;
+import phonis.cannontracer.listeners.ChangeWorldEvent;
 import phonis.cannontracer.listeners.ExplosionEvent;
+import phonis.cannontracer.listeners.LeaveEvent;
 import phonis.cannontracer.listeners.SandBlockEvent;
 import phonis.cannontracer.networking.CTListener;
 import phonis.cannontracer.networking.CTManager;
@@ -46,6 +49,8 @@ public class CannonTracer extends JavaPlugin {
 
         new ExplosionEvent(this, tick);
         new SandBlockEvent(this, tick);
+        new ChangeWorldEvent(this);
+        new LeaveEvent(this);
 
         tick.start();
     }
