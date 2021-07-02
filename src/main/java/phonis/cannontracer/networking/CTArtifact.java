@@ -1,10 +1,12 @@
 package phonis.cannontracer.networking;
 
-import java.io.Serializable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CTArtifact implements Serializable {
+public class CTArtifact implements CTSerializable {
 
     private static List<CTEdge> boxEdges;
 
@@ -51,7 +53,6 @@ public class CTArtifact implements Serializable {
             for (CTEdge edge : CTArtifact.boxEdges) {
                 this.lines.add(
                     new CTLine(
-                        null,
                         this.location.plus(edge.start),
                         this.location.plus(edge.finish),
                         this.lineType,
@@ -69,6 +70,21 @@ public class CTArtifact implements Serializable {
         }
 
         return this.lines;
+    }
+
+    @Override
+    public void toBytes(DataOutputStream dos) throws IOException {
+        this.location.toBytes(dos);
+        this.lineType.toBytes(dos);
+        this.artifactType.toBytes(dos);
+    }
+
+    public static CTArtifact fromBytes(DataInputStream dis) throws IOException {
+        return new CTArtifact(
+            CTVec3.fromBytes(dis),
+            CTLineType.fromBytes(dis),
+            CTArtifactType.fromBytes(dis)
+        );
     }
 
 }

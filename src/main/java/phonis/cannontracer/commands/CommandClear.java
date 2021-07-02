@@ -37,7 +37,7 @@ public class CommandClear extends EntityTracerCommand {
             tu = TracerUser.getUser(player.getUniqueId());
 
             if (CTManager.isSubscribed(player.getUniqueId())) {
-                CTManager.sendToPlayer(player, new CTClear(null));
+                CTManager.sendToPlayer(player, new CTClear(CTLineType.ALL));
             }
 
             tu.clearParticles();

@@ -14,7 +14,6 @@ public class CTAdapter {
 
     public static CTLine fromLine(Line line, int life) {
         return new CTLine(
-            line.getStart().getWorld().getUID(),
             CTAdapter.fromLocation(line.getStart()),
             CTAdapter.fromLocation(line.getFinish()),
             CTAdapter.fromParticleType(line.getType()),

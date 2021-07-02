@@ -5,8 +5,8 @@ import org.bukkit.entity.Player;
 import phonis.cannontracer.CannonTracer;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -17,13 +17,18 @@ public class CTManager {
     public static final String CTChannel = "cannontracer:main";
 
     public static void sendToPlayer(Player player, CTPacket packet) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ObjectOutputStream oos = new ObjectOutputStream(baos);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
 
-            oos.writeObject(packet);
-            oos.flush();
-            player.sendPluginMessage(CannonTracer.instance, CTManager.CTChannel, baos.toByteArray());
+        try {
+            dos.writeByte(packet.packetID());
+            packet.toBytes(dos);
+
+            byte[] bytes = baos.toByteArray();
+
+            // System.out.println(packet.getClass().getName() + " " + bytes.length);
+
+            player.sendPluginMessage(CannonTracer.instance, CTManager.CTChannel, bytes);
         } catch (IOException e) {
             e.printStackTrace();
         }

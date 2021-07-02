@@ -1,20 +1,20 @@
 package phonis.cannontracer.networking;
 
-import java.io.Serializable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
-public class CTLine implements Serializable {
+public class CTLine implements CTSerializable {
 
-    public final UUID world;
     public final CTVec3 start;
     public final CTVec3 finish;
     public final CTLineType type;
     public final List<CTArtifact> artifactList;
     private int ticks;
 
-    public CTLine(UUID world, CTVec3 start, CTVec3 finish, CTLineType type, List<CTArtifact> artifactSet, int ticks) {
-        this.world = world;
+    public CTLine(CTVec3 start, CTVec3 finish, CTLineType type, List<CTArtifact> artifactSet, int ticks) {
         this.start = start;
         this.finish = finish;
         this.type = type;
@@ -36,6 +36,46 @@ public class CTLine implements Serializable {
 
     public int decrementAndGet() {
         return this.ticks--;
+    }
+
+    public int size() {
+        return 31 + this.artifactList.size() * 14;
+    }
+
+    @Override
+    public void toBytes(DataOutputStream dos) throws IOException {
+        this.start.toBytes(dos);
+        this.finish.toBytes(dos);
+        this.type.toBytes(dos);
+        dos.writeShort(this.artifactList.size());
+
+        for (CTArtifact artifact : this.artifactList) {
+            artifact.toBytes(dos);
+        }
+
+        dos.writeInt(this.ticks);
+    }
+
+    public static CTLine fromBytes(DataInputStream dis) throws IOException {
+        return new CTLine(
+            CTVec3.fromBytes(dis),
+            CTVec3.fromBytes(dis),
+            CTLineType.fromBytes(dis),
+            CTLine.readArtifactList(dis),
+            dis.readInt()
+        );
+    }
+
+    private static List<CTArtifact> readArtifactList(DataInputStream dis) throws IOException {
+        List<CTArtifact> artifacts = new ArrayList<CTArtifact>();
+
+        short length = dis.readShort();
+
+        for (short i = 0; i < length; i++) {
+            artifacts.add(CTArtifact.fromBytes(dis));
+        }
+
+        return artifacts;
     }
 
 }

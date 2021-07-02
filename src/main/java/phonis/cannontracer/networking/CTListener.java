@@ -7,19 +7,45 @@ import phonis.cannontracer.CannonTracer;
 import phonis.cannontracer.serializable.TracerUser;
 
 import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 
 public class CTListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(String s, Player player, byte[] bytes) {
-        try {
-            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes));
-            CTPacket packet = (CTPacket) ois.readObject();
+        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bytes));
 
-            this.handlePacket(s, player, packet);
-        } catch (IOException | ClassNotFoundException e) {
+        try {
+            byte packetId = dis.readByte();
+
+            switch (packetId) {
+                case Packets.registerID:
+                    this.handlePacket(s, player, CTRegister.fromBytes(dis));
+
+                    break;
+                case Packets.unsupportedID:
+                    this.handlePacket(s, player, CTUnsupported.fromBytes(dis));
+
+                    break;
+                case Packets.newLinesID:
+                    this.handlePacket(s, player, CTNewLines.fromBytes(dis));
+
+                    break;
+                case Packets.clearID:
+                    this.handlePacket(s, player, CTClear.fromBytes(dis));
+
+                    break;
+                case Packets.setWorldID:
+                    this.handlePacket(s, player, CTSetWorld.fromBytes(dis));
+
+                    break;
+                default:
+                    System.out.println("Unrecognised packet.");
+
+                    break;
+            }
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

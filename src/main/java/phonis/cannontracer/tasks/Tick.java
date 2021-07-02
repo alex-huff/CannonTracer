@@ -20,6 +20,8 @@ import java.util.*;
 
 public class Tick implements Runnable {
 
+    private static int maxLinesSize = 30000;
+
     private final Set<LocationChange> changes = new HashSet<>();
     private final Set<EntityLocation> lastTicks = new HashSet<>();
     private final Map<Integer, EntityLocation> locations = new HashMap<>();
@@ -172,8 +174,28 @@ public class Tick implements Runnable {
             }
         }
 
-        if (isSubscribed) {
-            CTManager.sendToPlayer(player, new CTNewLines(totalLines));
+        if (isSubscribed && totalLines.size() > 0) {
+            int currentSize = 0;
+            Iterator<CTLine> iterator = totalLines.iterator();
+            List<CTLine> currentPacket = new ArrayList<>();
+
+            while (iterator.hasNext()) {
+                CTLine current = iterator.next();
+
+                if (currentSize + current.size() < Tick.maxLinesSize) {
+                    currentSize += current.size();
+                } else {
+                    CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
+
+                    currentPacket = new ArrayList<>();
+                    currentSize = current.size();
+
+                }
+
+                currentPacket.add(current);
+            }
+
+            CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
         }
     }
 
