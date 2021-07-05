@@ -35,4 +35,15 @@ public class CTVec3 implements CTSerializable {
         );
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof CTVec3) {
+            CTVec3 otherVec = (CTVec3) other;
+
+            return this.x == otherVec.x && this.y == otherVec.y && this.z == otherVec.z;
+        }
+
+        return false;
+    }
+
 }

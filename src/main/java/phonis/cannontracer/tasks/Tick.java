@@ -182,6 +182,8 @@ public class Tick implements Runnable {
             while (iterator.hasNext()) {
                 CTLine current = iterator.next();
 
+                if (current.artifactList.size() == 0 && current.start.equals(current.finish)) continue;
+
                 if (currentSize + current.size() < Tick.maxLinesSize) {
                     currentSize += current.size();
                 } else {
@@ -195,7 +197,8 @@ public class Tick implements Runnable {
                 currentPacket.add(current);
             }
 
-            CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
+            if (currentPacket.size() > 0)
+                CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
         }
     }
 
