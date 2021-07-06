@@ -4,10 +4,12 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
+import phonis.cannontracer.networking.CTAdapter;
+import phonis.cannontracer.networking.CTVec3;
 
 public class LineEq {
 
-    private final Vector direction;
+    private final CTVec3 direction;
     private final double yzInty;
     private final double yzIntz;
     private final double yxInty;
@@ -15,38 +17,42 @@ public class LineEq {
     private final double zxIntz;
     private final double zxIntx;
 
-    public LineEq(Vector direction, Location location) {
+    public LineEq(CTVec3 direction, Location location) {
         this.direction = direction;
 
-        if (direction.getX() != 0) {
-            double yzInt = (location.getX() * -1) / direction.getX();
+        if (direction.x != 0) {
+            double yzInt = (location.getX() * -1) / direction.x;
 
-            this.yzInty = location.getY() + direction.getY() * yzInt;
-            this.yzIntz = location.getZ() + direction.getZ() * yzInt;
+            this.yzInty = location.getY() + direction.y * yzInt;
+            this.yzIntz = location.getZ() + direction.z * yzInt;
         } else {
             this.yzInty = Double.NaN;
             this.yzIntz = Double.NaN;
         }
 
-        if (direction.getY() != 0) {
-            double zxInt = (location.getY() * -1) / direction.getY();
+        if (direction.y != 0) {
+            double zxInt = (location.getY() * -1) / direction.y;
 
-            this.zxIntz = location.getZ() + direction.getZ() * zxInt;
-            this.zxIntx = location.getX() + direction.getX() + zxInt;
+            this.zxIntz = location.getZ() + direction.z * zxInt;
+            this.zxIntx = location.getX() + direction.x + zxInt;
         } else {
             this.zxIntz = Double.NaN;
             this.zxIntx = Double.NaN;
         }
 
-        if (direction.getZ() != 0) {
-            double yxInt = (location.getZ() * -1) / direction.getZ();
+        if (direction.z != 0) {
+            double yxInt = (location.getZ() * -1) / direction.z;
 
-            this.yxInty = location.getY() + direction.getY() * yxInt;
-            this.yxIntx = location.getX() + direction.getX() * yxInt;
+            this.yxInty = location.getY() + direction.y * yxInt;
+            this.yxIntx = location.getX() + direction.x * yxInt;
         } else {
             this.yxInty = Double.NaN;
             this.yxIntx = Double.NaN;
         }
+    }
+
+    public LineEq(Vector direction, Location location) {
+        this(CTAdapter.fromVector(direction), location);
     }
 
     @Override

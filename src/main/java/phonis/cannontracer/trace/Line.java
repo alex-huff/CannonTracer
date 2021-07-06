@@ -121,25 +121,31 @@ public class Line {
     public boolean contains(Line other) {
         return (
             (
+                this.start.getX() <= this.finish.getX() &&
                 this.start.getX() <= other.start.getX() &&
                     this.finish.getX() >= other.finish.getX()
             ) || (
+                this.start.getX() >= this.finish.getX() &&
                 this.start.getX() >= other.start.getX() &&
                     this.finish.getX() <= other.finish.getX()
             )
         ) && (
             (
+                this.start.getY() <= this.finish.getY() &&
                 this.start.getY() <= other.start.getY() &&
                     this.finish.getY() >= other.finish.getY()
             ) || (
+                this.start.getY() >= this.finish.getY() &&
                 this.start.getY() >= other.start.getY() &&
                     this.finish.getY() <= other.finish.getY()
             )
         ) && (
             (
+                this.start.getZ() <= this.finish.getZ() &&
                 this.start.getZ() <= other.start.getZ() &&
                     this.finish.getZ() >= other.finish.getZ()
             ) || (
+                this.start.getZ() >= this.finish.getZ() &&
                 this.start.getZ() >= other.start.getZ() &&
                     this.finish.getZ() <= other.finish.getZ()
             )

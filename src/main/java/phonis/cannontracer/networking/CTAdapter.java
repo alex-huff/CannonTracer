@@ -1,25 +1,41 @@
 package phonis.cannontracer.networking;
 
 import org.bukkit.Location;
+import org.bukkit.util.Vector;
 import phonis.cannontracer.trace.Artifact;
 import phonis.cannontracer.trace.Line;
 import phonis.cannontracer.trace.OffsetType;
 import phonis.cannontracer.trace.ParticleType;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class CTAdapter {
+
+    public static CTVec3 fromVector(Vector vector) {
+        return new CTVec3(
+            vector.getX(),
+            vector.getY(),
+            vector.getZ()
+        );
+    }
 
     public static CTLine fromLine(Line line, int life) {
         return new CTLine(
             CTAdapter.fromLocation(line.getStart()),
             CTAdapter.fromLocation(line.getFinish()),
             CTAdapter.fromParticleType(line.getType()),
-            CTAdapter.fromArtifacts(line.artifacts),
             life
         );
+    }
+
+    public static Set<CTArtifact> artifactsFromLine(Line line, int life) {
+        Set<CTArtifact> artifacts = new HashSet<>();
+
+        for (Artifact artifact : line.artifacts) {
+            artifacts.add(CTAdapter.fromArtifact(artifact));
+        }
+
+        return artifacts;
     }
 
     private static CTVec3 fromLocation(Location location) {
@@ -44,16 +60,6 @@ public class CTAdapter {
         } else {
             return null;
         }
-    }
-
-    private static List<CTArtifact> fromArtifacts(Set<Artifact> artifacts) {
-        List<CTArtifact> newArtifacts = new ArrayList<>(artifacts.size());
-
-        for (Artifact artifact : artifacts) {
-            newArtifacts.add(CTAdapter.fromArtifact(artifact));
-        }
-
-        return newArtifacts;
     }
 
     private static CTArtifact fromArtifact(Artifact artifact) {

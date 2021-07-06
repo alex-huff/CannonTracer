@@ -1,5 +1,7 @@
 package phonis.cannontracer.networking;
 
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -38,7 +40,6 @@ public class CTArtifact implements CTSerializable {
     public final CTVec3 location;
     public final CTLineType lineType;
     public final CTArtifactType artifactType;
-    private List<CTLine> lines;
 
     public CTArtifact(CTVec3 location, CTLineType lineType, CTArtifactType artifactType) {
         this.location = location;
@@ -46,30 +47,49 @@ public class CTArtifact implements CTSerializable {
         this.artifactType = artifactType;
     }
 
-    private void makeLines() {
-        this.lines = new ArrayList<CTLine>();
+    private List<CTLine> makeLines() {
+        List<CTLine> lines = new ArrayList<CTLine>();
 
         if (this.artifactType.equals(CTArtifactType.BLOCKBOX)) {
             for (CTEdge edge : CTArtifact.boxEdges) {
-                this.lines.add(
+                lines.add(
                     new CTLine(
                         this.location.plus(edge.start),
                         this.location.plus(edge.finish),
                         this.lineType,
-                        null,
                         -1
                     )
                 );
             }
         }
+
+        return lines;
     }
 
-    public List<CTLine> getLines() {
-        if (this.lines == null) {
-            this.makeLines();
+    public int size() {
+        return 14;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof CTArtifact) {
+            CTArtifact otherArtifact = (CTArtifact) other;
+
+            return this.location.equals(otherArtifact.location) &&
+                this.lineType.equals(otherArtifact.lineType) &&
+                this.artifactType.equals(otherArtifact.artifactType);
         }
 
-        return this.lines;
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(17, 31).
+            append(this.location).
+            append(this.lineType.ordinal()).
+            append(this.artifactType.ordinal()).
+            toHashCode();
     }
 
     @Override

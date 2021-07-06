@@ -9,10 +9,7 @@ import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.*;
 import phonis.cannontracer.CannonTracer;
-import phonis.cannontracer.networking.CTAdapter;
-import phonis.cannontracer.networking.CTLine;
-import phonis.cannontracer.networking.CTManager;
-import phonis.cannontracer.networking.CTNewLines;
+import phonis.cannontracer.networking.*;
 import phonis.cannontracer.serializable.TracerUser;
 import phonis.cannontracer.trace.*;
 
@@ -20,7 +17,7 @@ import java.util.*;
 
 public class Tick implements Runnable {
 
-    private static int maxLinesSize = 30000;
+    private static final int maxPayloadSize = 30000;
 
     private final Set<LocationChange> changes = new HashSet<>();
     private final Set<EntityLocation> lastTicks = new HashSet<>();
@@ -163,18 +160,22 @@ public class Tick implements Runnable {
         }
 
         List<CTLine> totalLines = new ArrayList<>();
+        Set<CTArtifact> totalArtifacts = new HashSet<>();
 
         for (LineEq lineEq : culledLines.keySet()) {
             for (Line line : culledLines.get(lineEq)) {
                 if (isSubscribed) {
                     totalLines.add(CTAdapter.fromLine(line, tu.getTraceTime()));
+                    totalArtifacts.addAll(CTAdapter.artifactsFromLine(line, tu.getTraceTime()));
                 } else {
                     tu.addLine(line);
                 }
             }
         }
 
-        if (isSubscribed && totalLines.size() > 0) {
+        if (!isSubscribed) return;
+
+        if (totalLines.size() > 0) {
             int currentSize = 0;
             Iterator<CTLine> iterator = totalLines.iterator();
             List<CTLine> currentPacket = new ArrayList<>();
@@ -182,9 +183,9 @@ public class Tick implements Runnable {
             while (iterator.hasNext()) {
                 CTLine current = iterator.next();
 
-                if (current.artifactList.size() == 0 && current.start.equals(current.finish)) continue;
+                if (current.start.equals(current.finish)) continue;
 
-                if (currentSize + current.size() < Tick.maxLinesSize) {
+                if (currentSize + current.size() < Tick.maxPayloadSize) {
                     currentSize += current.size();
                 } else {
                     CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
@@ -199,6 +200,31 @@ public class Tick implements Runnable {
 
             if (currentPacket.size() > 0)
                 CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
+        }
+
+        if (totalArtifacts.size() > 0) {
+            int currentSize = 0;
+            Iterator<CTArtifact> iterator = totalArtifacts.iterator();
+            List<CTArtifact> currentPacket = new ArrayList<>();
+
+            while (iterator.hasNext()) {
+                CTArtifact current = iterator.next();
+
+                if (currentSize + current.size() < Tick.maxPayloadSize) {
+                    currentSize += current.size();
+                } else {
+                    CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), currentPacket));
+
+                    currentPacket = new ArrayList<>();
+                    currentSize = current.size();
+
+                }
+
+                currentPacket.add(current);
+            }
+
+            if (currentPacket.size() > 0)
+                CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), currentPacket));
         }
     }
 
