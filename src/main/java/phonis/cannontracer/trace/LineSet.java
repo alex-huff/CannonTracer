@@ -51,7 +51,11 @@ public class LineSet extends ArrayList<Line> {
                 }
             }
 
-            if (!contained) super.add(toAdd);
+            if (!contained) {
+                super.add(toAdd);
+            } else {
+                return false;
+            }
 
             if (!changed) break;
         }

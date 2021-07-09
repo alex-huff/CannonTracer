@@ -19,7 +19,7 @@ public class CTAdapter {
         );
     }
 
-    public static CTLine fromLine(Line line, int life) {
+    public static CTLine fromLine(Line line, short life) {
         return new CTLine(
             CTAdapter.fromLocation(line.getStart()),
             CTAdapter.fromLocation(line.getFinish()),
@@ -28,11 +28,11 @@ public class CTAdapter {
         );
     }
 
-    public static Set<CTArtifact> artifactsFromLine(Line line, int life) {
+    public static Set<CTArtifact> artifactsFromLine(Line line, short life) {
         Set<CTArtifact> artifacts = new HashSet<>();
 
         for (Artifact artifact : line.artifacts) {
-            artifacts.add(CTAdapter.fromArtifact(artifact));
+            artifacts.add(CTAdapter.fromArtifact(artifact, life));
         }
 
         return artifacts;
@@ -62,11 +62,12 @@ public class CTAdapter {
         }
     }
 
-    private static CTArtifact fromArtifact(Artifact artifact) {
+    private static CTArtifact fromArtifact(Artifact artifact, short ticks) {
         return new CTArtifact(
             CTAdapter.fromLocation(artifact.getLocation()),
             CTAdapter.fromParticleType(artifact.getType()),
-            CTAdapter.fromOffsetType(artifact.getOffsetType())
+            CTAdapter.fromOffsetType(artifact.getOffsetType()),
+            ticks
         );
     }
 

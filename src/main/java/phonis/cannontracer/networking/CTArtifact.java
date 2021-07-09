@@ -40,14 +40,16 @@ public class CTArtifact implements CTSerializable {
     public final CTVec3 location;
     public final CTLineType lineType;
     public final CTArtifactType artifactType;
+    private final short ticks;
 
-    public CTArtifact(CTVec3 location, CTLineType lineType, CTArtifactType artifactType) {
+    public CTArtifact(CTVec3 location, CTLineType lineType, CTArtifactType artifactType, short ticks) {
         this.location = location;
         this.lineType = lineType;
         this.artifactType = artifactType;
+        this.ticks = ticks;
     }
 
-    private List<CTLine> makeLines() {
+    public List<CTLine> makeLines() {
         List<CTLine> lines = new ArrayList<CTLine>();
 
         if (this.artifactType.equals(CTArtifactType.BLOCKBOX)) {
@@ -57,7 +59,7 @@ public class CTArtifact implements CTSerializable {
                         this.location.plus(edge.start),
                         this.location.plus(edge.finish),
                         this.lineType,
-                        -1
+                        this.ticks
                     )
                 );
             }
@@ -77,7 +79,8 @@ public class CTArtifact implements CTSerializable {
 
             return this.location.equals(otherArtifact.location) &&
                 this.lineType.equals(otherArtifact.lineType) &&
-                this.artifactType.equals(otherArtifact.artifactType);
+                this.artifactType.equals(otherArtifact.artifactType) &&
+                this.ticks == otherArtifact.ticks;
         }
 
         return false;
@@ -89,6 +92,7 @@ public class CTArtifact implements CTSerializable {
             append(this.location).
             append(this.lineType.ordinal()).
             append(this.artifactType.ordinal()).
+            append(this.ticks).
             toHashCode();
     }
 
@@ -99,11 +103,12 @@ public class CTArtifact implements CTSerializable {
         this.artifactType.toBytes(dos);
     }
 
-    public static CTArtifact fromBytes(DataInputStream dis) throws IOException {
+    public static CTArtifact fromBytes(DataInputStream dis, short ticks) throws IOException {
         return new CTArtifact(
             CTVec3.fromBytes(dis),
             CTLineType.fromBytes(dis),
-            CTArtifactType.fromBytes(dis)
+            CTArtifactType.fromBytes(dis),
+            ticks
         );
     }
 

@@ -146,6 +146,7 @@ public class Tick implements Runnable {
 
     private void handleTraces(List<Trace> traces, TracerUser tu, boolean isSubscribed, Player player) {
         Map<LineEq, LineSet> culledLines = new HashMap<>();
+        int culledLineCount = 0;
 
         for (Trace trace : traces) {
             List<Line> lines = trace.getLines();
@@ -155,9 +156,11 @@ public class Tick implements Runnable {
                     culledLines.put(line.getLineEq(), new LineSet(tu.isTickConnect()));
                 }
 
-                culledLines.get(line.getLineEq()).add(line);
+                culledLineCount += culledLines.get(line.getLineEq()).add(line) ? 0 : 1;
             }
         }
+
+        // System.out.println("Culled lines: " + culledLineCount);
 
         List<CTLine> totalLines = new ArrayList<>();
         Set<CTArtifact> totalArtifacts = new HashSet<>();
@@ -165,8 +168,9 @@ public class Tick implements Runnable {
         for (LineEq lineEq : culledLines.keySet()) {
             for (Line line : culledLines.get(lineEq)) {
                 if (isSubscribed) {
-                    totalLines.add(CTAdapter.fromLine(line, tu.getTraceTime()));
-                    totalArtifacts.addAll(CTAdapter.artifactsFromLine(line, tu.getTraceTime()));
+                    // ticks does not matter since it is inferred by client from NewLines/Artifacts packet
+                    totalLines.add(CTAdapter.fromLine(line, (short) -1));
+                    totalArtifacts.addAll(CTAdapter.artifactsFromLine(line, (short) -1));
                 } else {
                     tu.addLine(line);
                 }
@@ -179,6 +183,7 @@ public class Tick implements Runnable {
             int currentSize = 0;
             Iterator<CTLine> iterator = totalLines.iterator();
             List<CTLine> currentPacket = new ArrayList<>();
+            short ticks = (short) tu.getTraceTime();
 
             while (iterator.hasNext()) {
                 CTLine current = iterator.next();
@@ -188,7 +193,7 @@ public class Tick implements Runnable {
                 if (currentSize + current.size() < Tick.maxPayloadSize) {
                     currentSize += current.size();
                 } else {
-                    CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
+                    CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), ticks, currentPacket));
 
                     currentPacket = new ArrayList<>();
                     currentSize = current.size();
@@ -199,13 +204,14 @@ public class Tick implements Runnable {
             }
 
             if (currentPacket.size() > 0)
-                CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), currentPacket));
+                CTManager.sendToPlayer(player, new CTNewLines(player.getWorld().getUID(), ticks, currentPacket));
         }
 
         if (totalArtifacts.size() > 0) {
             int currentSize = 0;
             Iterator<CTArtifact> iterator = totalArtifacts.iterator();
             List<CTArtifact> currentPacket = new ArrayList<>();
+            short ticks = (short) tu.getTraceTime();
 
             while (iterator.hasNext()) {
                 CTArtifact current = iterator.next();
@@ -213,7 +219,7 @@ public class Tick implements Runnable {
                 if (currentSize + current.size() < Tick.maxPayloadSize) {
                     currentSize += current.size();
                 } else {
-                    CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), currentPacket));
+                    CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), ticks, currentPacket));
 
                     currentPacket = new ArrayList<>();
                     currentSize = current.size();
@@ -224,7 +230,7 @@ public class Tick implements Runnable {
             }
 
             if (currentPacket.size() > 0)
-                CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), currentPacket));
+                CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), ticks, currentPacket));
         }
     }
 
