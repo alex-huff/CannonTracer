@@ -2,7 +2,7 @@ name: CannonTracer
 version: "1.0"
 description: EntityTracer rewrite
 author: phonis
-main: phonis.cannontracer.CannonTracer
+main: dev.phonis.cannontracer.CannonTracer
 commands:
   tracer:
     aliases: [t]
