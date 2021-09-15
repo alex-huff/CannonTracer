@@ -5,9 +5,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import dev.phonis.cannontracer.commands.CommandTracer;
 import dev.phonis.cannontracer.listeners.ChangeWorldEvent;
-import dev.phonis.cannontracer.listeners.ExplosionEvent;
 import dev.phonis.cannontracer.listeners.LeaveEvent;
-import dev.phonis.cannontracer.listeners.SandBlockEvent;
+import dev.phonis.cannontracer.listeners.EntityChangeFormEvent;
 import dev.phonis.cannontracer.networking.CTListener;
 import dev.phonis.cannontracer.networking.CTManager;
 import dev.phonis.cannontracer.serializable.TracerUser;
@@ -46,8 +45,7 @@ public class CannonTracer extends JavaPlugin {
 
         new CommandTracer(this, "tracer");
 
-        new ExplosionEvent(this, tick);
-        new SandBlockEvent(this, tick);
+        new EntityChangeFormEvent(this, tick);
         new ChangeWorldEvent(this);
         new LeaveEvent(this);
 

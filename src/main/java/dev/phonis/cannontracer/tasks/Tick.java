@@ -20,17 +20,12 @@ public class Tick implements Runnable {
     private static final int maxPayloadSize = 30000;
 
     private final Set<LocationChange> changes = new HashSet<>();
-    private final Set<EntityLocation> lastTicks = new HashSet<>();
-    private final Map<Integer, EntityLocation> locations = new HashMap<>();
+    public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
     private int tickCount = 0;
 
     public Tick(CannonTracer cannonTracer) {
         this.cannonTracer = cannonTracer;
-    }
-
-    public Set<EntityLocation> getLastTicks() {
-        return this.lastTicks;
     }
 
     public void start() {
@@ -65,10 +60,6 @@ public class Tick implements Runnable {
                 }
 
                 el = new EntityLocation(loc, false, entity.getType());
-
-                if (entity.getType().equals(EntityType.PRIMED_TNT) && entity.getTicksLived() == 80) {
-                    this.lastTicks.add(el);
-                }
             }
         } else {
             el = new EntityLocation(loc, true, entity.getType());
@@ -78,11 +69,9 @@ public class Tick implements Runnable {
     }
 
     private void processEntities() {
-        this.lastTicks.clear();
-
         for (World world : Bukkit.getServer().getWorlds()) {
             for (Entity entity : world.getEntitiesByClasses(FallingBlock.class, TNTPrimed.class, Player.class)) {
-                processEntity(world, entity);
+                this.processEntity(world, entity);
             }
         }
 
