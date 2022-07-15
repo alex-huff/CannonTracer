@@ -1,14 +1,18 @@
 package dev.phonis.cannontracer.commands;
 
+import dev.phonis.cannontracer.serializable.TracerUser;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import dev.phonis.cannontracer.serializable.TracerUser;
 
 import java.util.List;
 
-public class CommandEndPos extends EntityTracerCommand {
+public
+class CommandEndPos extends EntityTracerCommand
+{
 
-    public CommandEndPos() {
+    public
+    CommandEndPos()
+    {
         super("endpos");
         this.addAlias("ep");
         this.args.add("tnt");
@@ -16,27 +20,38 @@ public class CommandEndPos extends EntityTracerCommand {
     }
 
     @Override
-    public List<String> topTabComplete(String[] args) {
+    public
+    List<String> topTabComplete(String[] args)
+    {
         return this.argsAutocomplete(args, 1);
     }
 
     @Override
-    public void execute(CommandSender sender, String[] args) throws CommandException {
+    public
+    void execute(CommandSender sender, String[] args) throws CommandException
+    {
         throw new CommandException(CommandException.consoleError);
     }
 
     @Override
-    public void execute(Player player, String[] args) {
+    public
+    void execute(Player player, String[] args)
+    {
         TracerUser tu;
 
-        if (args.length < 1) {
+        if (args.length < 1)
+        {
             player.sendMessage(this.getCommandString(0));
-        } else if (args[0].equals("tnt") || args[0].equals("t")) {
+        }
+        else if (args[0].equals("tnt") || args[0].equals("t"))
+        {
             tu = TracerUser.getUser(player.getUniqueId());
 
             tu.toggleEndPosTNT();
             player.sendMessage("TNT end positions are now: " + tu.isEndPosTNT());
-        } else if (args[0].equals("sand") || args[0].equals("s")) {
+        }
+        else if (args[0].equals("sand") || args[0].equals("s"))
+        {
             tu = TracerUser.getUser(player.getUniqueId());
 
             tu.toggleEndPosSand();

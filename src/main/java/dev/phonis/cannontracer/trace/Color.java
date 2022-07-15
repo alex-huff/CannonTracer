@@ -1,26 +1,36 @@
 package dev.phonis.cannontracer.trace;
 
-public class Color {
+public
+class Color
+{
 
     private final int r;
     private final int g;
     private final int b;
 
-    public Color(int r, int g, int b) {
+    public
+    Color(int r, int g, int b)
+    {
         this.r = r;
         this.g = g;
         this.b = b;
     }
 
-    public int getR() {
+    public
+    int getR()
+    {
         return this.r;
     }
 
-    public int getG() {
+    public
+    int getG()
+    {
         return this.g;
     }
 
-    public int getB() {
+    public
+    int getB()
+    {
         return this.b;
     }
 

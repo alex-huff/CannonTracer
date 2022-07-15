@@ -1,8 +1,8 @@
 package dev.phonis.cannontracer.networking;
 
+import dev.phonis.cannontracer.CannonTracer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import dev.phonis.cannontracer.CannonTracer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -11,16 +11,21 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public class CTManager {
+public
+class CTManager
+{
 
     private static final Set<UUID> subscribed = new HashSet<>();
-    public static final String CTChannel = "cannontracer:main";
+    public static final  String    CTChannel  = "cannontracer:main";
 
-    public static void sendToPlayer(Player player, CTPacket packet) {
+    public static
+    void sendToPlayer(Player player, CTPacket packet)
+    {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream dos = new DataOutputStream(baos);
+        DataOutputStream      dos  = new DataOutputStream(baos);
 
-        try {
+        try
+        {
             dos.writeByte(packet.packetID());
             packet.toBytes(dos);
 
@@ -29,35 +34,52 @@ public class CTManager {
             // System.out.println(packet.getClass().getName() + " " + bytes.length);
 
             player.sendPluginMessage(CannonTracer.instance, CTManager.CTChannel, bytes);
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
 
-    public static void sendToSubscribed(CTPacket packet) {
-        for (UUID uuid : CTManager.subscribed) {
+    public static
+    void sendToSubscribed(CTPacket packet)
+    {
+        for (UUID uuid : CTManager.subscribed)
+        {
             Player player = Bukkit.getPlayer(uuid);
 
-            if (player == null) continue;
+            if (player == null)
+            {
+                continue;
+            }
 
             CTManager.sendToPlayer(player, packet);
         }
     }
 
-    public static void addToSubscribed(UUID uuid) {
+    public static
+    void addToSubscribed(UUID uuid)
+    {
         CTManager.subscribed.add(uuid);
     }
 
-    public static boolean isSubscribed(UUID uuid) {
+    public static
+    boolean isSubscribed(UUID uuid)
+    {
         return CTManager.subscribed.contains(uuid);
     }
 
-    public static void removeFromSubscribed(UUID uuid) {
+    public static
+    void removeFromSubscribed(UUID uuid)
+    {
         CTManager.subscribed.remove(uuid);
     }
 
-    public static void sendToPlayerIfSubscribed(Player player, CTPacket packet) {
-        if (CTManager.subscribed.contains(player.getUniqueId())) {
+    public static
+    void sendToPlayerIfSubscribed(Player player, CTPacket packet)
+    {
+        if (CTManager.subscribed.contains(player.getUniqueId()))
+        {
             CTManager.sendToPlayer(player, packet);
         }
     }

@@ -1,25 +1,31 @@
 package dev.phonis.cannontracer.networking;
 
+import dev.phonis.cannontracer.CannonTracer;
+import dev.phonis.cannontracer.serializable.TracerUser;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
-import dev.phonis.cannontracer.CannonTracer;
-import dev.phonis.cannontracer.serializable.TracerUser;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 
-public class CTListener implements PluginMessageListener {
+public
+class CTListener implements PluginMessageListener
+{
 
     @Override
-    public void onPluginMessageReceived(String s, Player player, byte[] bytes) {
+    public
+    void onPluginMessageReceived(String s, Player player, byte[] bytes)
+    {
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bytes));
 
-        try {
+        try
+        {
             byte packetId = dis.readByte();
 
-            switch (packetId) {
+            switch (packetId)
+            {
                 case Packets.registerID:
                     this.handlePacket(s, player, CTRegister.fromBytes(dis));
 
@@ -45,20 +51,30 @@ public class CTListener implements PluginMessageListener {
 
                     break;
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
 
-    private void handlePacket(String s, Player player, CTPacket packet) {
-        if (packet instanceof CTRegister) {
+    private
+    void handlePacket(String s, Player player, CTPacket packet)
+    {
+        if (packet instanceof CTRegister)
+        {
             CTRegister register = (CTRegister) packet;
 
-            if (register.protocolVersion != CannonTracer.protocolVersion) {
+            if (register.protocolVersion != CannonTracer.protocolVersion)
+            {
                 CTManager.sendToPlayer(player, new CTUnsupported(CannonTracer.protocolVersion));
-                player.sendMessage("" + ChatColor.RED + ChatColor.BOLD + "You are using an unsupported version of Cannon Tracer Mod: " + register.protocolVersion + ". Server is on: " + CannonTracer.protocolVersion + ".");
+                player.sendMessage("" + ChatColor.RED + ChatColor.BOLD +
+                                   "You are using an unsupported version of Cannon Tracer Mod: " +
+                                   register.protocolVersion + ". Server is on: " + CannonTracer.protocolVersion + ".");
                 System.out.println(player.getName() + " is using an unsupported version.");
-            } else {
+            }
+            else
+            {
                 player.sendMessage("Thank you for using Cannon Tracer client.");
                 TracerUser.getUser(player.getUniqueId()).clearParticles();
                 CTManager.addToSubscribed(player.getUniqueId());

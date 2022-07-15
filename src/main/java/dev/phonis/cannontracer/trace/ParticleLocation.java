@@ -4,58 +4,71 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.bukkit.Location;
 
-public class ParticleLocation {
+public
+class ParticleLocation
+{
 
-    private final Location location;
-    private int life;
+    private final Location     location;
+    private       int          life;
     private final ParticleType type;
 
-    public ParticleLocation(Location location, int life, ParticleType type) {
+    public
+    ParticleLocation(Location location, int life, ParticleType type)
+    {
         this.location = location;
-        this.life = life;
-        this.type = type;
+        this.life     = life;
+        this.type     = type;
     }
 
-    public Location getLocation() {
+    public
+    Location getLocation()
+    {
         return this.location;
     }
 
-    public int getLife() {
+    public
+    int getLife()
+    {
         return this.life;
     }
 
-    public void decLife() {
+    public
+    void decLife()
+    {
         this.life--;
     }
 
-    public ParticleType getType() {
+    public
+    ParticleType getType()
+    {
         return this.type;
     }
 
     @Override
-    public int hashCode() {
-        return new HashCodeBuilder(17, 31).
-                                              append(this.getLocation()).
-                                                                            append(this.getType()).
-                                                                                                      toHashCode();
+    public
+    int hashCode()
+    {
+        return new HashCodeBuilder(17, 31).append(this.getLocation()).append(this.getType()).toHashCode();
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof ParticleLocation)) {
+    public
+    boolean equals(Object obj)
+    {
+        if (!(obj instanceof ParticleLocation))
+        {
             return false;
         }
 
-        if (obj == this) {
+        if (obj == this)
+        {
             return true;
         }
 
         final ParticleLocation pl = (ParticleLocation) obj;
 
-        return new EqualsBuilder().
-                                      append(this.getLocation(), pl.getLocation()).
-                                                                                      append(this.getType(), pl.getType()).
-                                                                                                                              isEquals();
+        return new EqualsBuilder().append(this.getLocation(), pl.getLocation()).append(this.getType(), pl.getType())
+            .isEquals();
     }
 
 }

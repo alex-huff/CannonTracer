@@ -2,24 +2,34 @@ package dev.phonis.cannontracer.trace;
 
 import org.bukkit.Location;
 
-public abstract class BlockTrace extends EntityMoveTrace {
+public abstract
+class BlockTrace extends EntityMoveTrace
+{
     private final boolean isStart;
     private final boolean isFinish;
 
-    public BlockTrace(Location start, Location finish, boolean isStart, boolean isFinish, boolean isConnected, boolean isHypotenusal) {
+    public
+    BlockTrace(Location start, Location finish, boolean isStart, boolean isFinish, boolean isConnected,
+               boolean isHypotenusal)
+    {
         super(start.clone().add(0, .49, 0), finish.clone().add(0, .49, 0), isConnected, isHypotenusal);
 
-        this.isStart = isStart;
+        this.isStart  = isStart;
         this.isFinish = isFinish;
     }
 
-    protected abstract ParticleType getSType();
+    protected abstract
+    ParticleType getSType();
 
-    protected abstract ParticleType getFType();
+    protected abstract
+    ParticleType getFType();
 
     @Override
-    protected ParticleType getStartType() {
-        if (this.isStart) {
+    protected
+    ParticleType getStartType()
+    {
+        if (this.isStart)
+        {
             return this.getSType();
         }
 
@@ -27,8 +37,11 @@ public abstract class BlockTrace extends EntityMoveTrace {
     }
 
     @Override
-    protected ParticleType getFinishType() {
-        if (this.isFinish) {
+    protected
+    ParticleType getFinishType()
+    {
+        if (this.isFinish)
+        {
             return this.getFType();
         }
 
@@ -36,12 +49,16 @@ public abstract class BlockTrace extends EntityMoveTrace {
     }
 
     @Override
-    protected OffsetType getStartOffsetType() {
+    protected
+    OffsetType getStartOffsetType()
+    {
         return OffsetType.BLOCKBOX;
     }
 
     @Override
-    protected OffsetType getFinishOffsetType() {
+    protected
+    OffsetType getFinishOffsetType()
+    {
         return OffsetType.BLOCKBOX;
     }
 

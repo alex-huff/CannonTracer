@@ -2,24 +2,35 @@ package dev.phonis.cannontracer.trace;
 
 import org.bukkit.Location;
 
-public class SandTrace extends BlockTrace {
+public
+class SandTrace extends BlockTrace
+{
 
-    public SandTrace(Location start, Location finish, boolean isStart, boolean isFinish, boolean isConnected, boolean isHypotenusal) {
+    public
+    SandTrace(Location start, Location finish, boolean isStart, boolean isFinish, boolean isConnected,
+              boolean isHypotenusal)
+    {
         super(start, finish, isStart, isFinish, isConnected, isHypotenusal);
     }
 
     @Override
-    protected ParticleType getType() {
+    protected
+    ParticleType getType()
+    {
         return ParticleType.SAND;
     }
 
     @Override
-    protected ParticleType getSType() {
+    protected
+    ParticleType getSType()
+    {
         return ParticleType.SAND;
     }
 
     @Override
-    protected ParticleType getFType() {
+    protected
+    ParticleType getFType()
+    {
         return ParticleType.SANDENDPOS;
     }
 
