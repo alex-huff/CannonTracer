@@ -3,14 +3,16 @@ version '1.0'
 
 repositories {
     // you must run BuildTools.jar for maven to be able to locate the necessary dependencies.
-    // --rev 1.8.8
+    // --rev 1.19
     mavenLocal()
+    mavenCentral()
 }
 
 apply plugin: 'java'
 
 dependencies {
-    compileOnly 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+    compileClasspath 'io.netty:netty-transport-native-epoll:4.1.77.Final'
+    compileClasspath 'org.spigotmc:spigot:1.19-R0.1-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {

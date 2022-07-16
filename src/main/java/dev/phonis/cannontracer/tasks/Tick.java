@@ -4,13 +4,13 @@ import dev.phonis.cannontracer.CannonTracer;
 import dev.phonis.cannontracer.networking.*;
 import dev.phonis.cannontracer.serializable.TracerUser;
 import dev.phonis.cannontracer.trace.*;
-import net.minecraft.server.v1_8_R3.EnumParticle;
-import net.minecraft.server.v1_8_R3.PacketPlayOutWorldParticles;
-import net.minecraft.server.v1_8_R3.PlayerConnection;
+import net.minecraft.network.protocol.game.PacketPlayOutWorldParticles;
+import net.minecraft.server.network.PlayerConnection;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
 import org.bukkit.entity.*;
 
 import java.util.*;
@@ -136,7 +136,7 @@ class Tick implements Runnable
     private
     void sendPackets(TracerUser tu, Player player)
     {
-        PlayerConnection           connection = ((CraftPlayer) player).getHandle().playerConnection;
+        PlayerConnection           connection = ((CraftPlayer) player).getHandle().b;
         Iterator<ParticleLocation> it         = tu.getParticleLocations().iterator();
 
         while (it.hasNext())
@@ -149,12 +149,30 @@ class Tick implements Runnable
                 if (tickCount == 5 && (pLocation.getLocation().distance(player.getLocation()) < tu.getViewRadius() ||
                                        tu.isUnlimitedRadius()))
                 {
-                    PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(EnumParticle.REDSTONE, true,
-                        (float) pLocation.getLocation().getX(), (float) pLocation.getLocation().getY(),
-                        (float) pLocation.getLocation().getZ(), pLocation.getType().getRGB().getR() / 255f - 1,
-                        pLocation.getType().getRGB().getG() / 255f, pLocation.getType().getRGB().getB() / 255f, 1, 0);
+                    PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
+                        org.bukkit.craftbukkit.v1_19_R1.CraftParticle.toNMS(
+                            Particle.REDSTONE,
+                            new Particle.DustOptions(
+                                org.bukkit.Color.fromRGB(
+                                    pLocation.getType().getRGB().getR(),
+                                    pLocation.getType().getRGB().getG(),
+                                    pLocation.getType().getRGB().getB()
+                                ),
+                                1f
+                            )
+                        ),
+                        true,
+                        pLocation.getLocation().getX(),
+                        pLocation.getLocation().getY(),
+                        pLocation.getLocation().getZ(),
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        0
+                    );
 
-                    connection.sendPacket(packet);
+                    connection.a(packet);
                 }
             }
 
