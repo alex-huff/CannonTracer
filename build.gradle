@@ -1,16 +1,24 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.0'
+}
+
 group 'dev.phonis'
 version '1.0'
+
+apply plugin: 'java'
 
 repositories {
     // you must run BuildTools.jar for maven to be able to locate the necessary dependencies.
     // --rev 1.8.8
     mavenLocal()
+    mavenCentral()
 }
 
-apply plugin: 'java'
-
 dependencies {
-    compileOnly 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    implementation 'de.biomedical-imaging.edu.wlu.cs.levy.cg:kdtree:1.0.3'
+    compileOnly files('libs/spigot-api-1.8.8-R0.1-20160205.005117-39-shaded.jar')
+    compileOnly files('libs/spigot-1.8.8.jar')
 }
 
 tasks.withType(JavaCompile) {
@@ -18,6 +26,15 @@ tasks.withType(JavaCompile) {
 }
 
 jar {
+    archiveBaseName.set('CannonTracer')
+    archiveVersion.set('')
+
+    from('src/main') {
+        include 'plugin.yml'
+    }
+}
+
+shadowJar {
     archiveBaseName.set('CannonTracer')
     archiveVersion.set('')
 

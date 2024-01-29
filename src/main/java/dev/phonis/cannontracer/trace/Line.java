@@ -81,32 +81,32 @@ public class Line {
         return this.lineEq;
     }
 
-    private List<ParticleLocation> getEndParticles(int life) {
-        List<ParticleLocation> ret = new ArrayList<>();
+    private List<TraceParticle> getEndParticles(int life) {
+        List<TraceParticle> ret = new ArrayList<>();
 
-        ret.add(new ParticleLocation(this.start, life, this.type));
-        ret.add(new ParticleLocation(this.finish, life, this.type));
+        ret.add(new TraceParticle(this.start, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
+        ret.add(new TraceParticle(this.finish, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
 
         return ret;
     }
 
-    private List<ParticleLocation> getLineParticles(int life) {
+    private List<TraceParticle> getLineParticles(int life) {
         double distance = this.start.distance(this.finish);
         Vector intervalDirection = this.direction.multiply(.25);
         Vector di2 = intervalDirection.clone();
 
-        List<ParticleLocation> ret = new ArrayList<>(this.getEndParticles(life));
+        List<TraceParticle> ret = new ArrayList<>(this.getEndParticles(life));
 
         while (di2.length() < distance) {
-            ret.add(new ParticleLocation(this.start.clone().add(di2.getX(), di2.getY(), di2.getZ()), life, this.type));
+            ret.add(new TraceParticle(this.start.clone().add(di2.getX(), di2.getY(), di2.getZ()), System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
             di2.add(intervalDirection);
         }
 
         return ret;
     }
 
-    public List<ParticleLocation> getParticles(int life) {
-        List<ParticleLocation> ret = new ArrayList<>();
+    public List<TraceParticle> getParticles(int life) {
+        List<TraceParticle> ret = new ArrayList<>();
 
         for (Artifact artifact : this.artifacts) {
             ret.addAll(artifact.getParticles(life));

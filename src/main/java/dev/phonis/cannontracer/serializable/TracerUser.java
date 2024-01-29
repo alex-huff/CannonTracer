@@ -1,13 +1,12 @@
 package dev.phonis.cannontracer.serializable;
 
+import dev.phonis.cannontracer.trace.*;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import dev.phonis.cannontracer.CannonTracer;
-import dev.phonis.cannontracer.trace.Line;
-import dev.phonis.cannontracer.trace.ParticleLocation;
-import dev.phonis.cannontracer.trace.ParticleLocationComparator;
-import dev.phonis.cannontracer.trace.ParticleType;
+import org.bukkit.World;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.*;
 
@@ -25,15 +24,13 @@ public class TracerUser implements Serializable {
     private boolean startPosTNT;
     private boolean tickConnect;
     private boolean hypotenusal;
-    private transient boolean unlimitedRadius = false;
     private double minDistance;
     private double traceRadius;
-    private transient double viewRadius;
     private int maxParticles;
     private int traceTime;
-    private transient Set<ParticleLocation> pLocs;
+    private transient Map<World, ParticleSystem> particleSystems = new HashMap<>();
 
-    private TracerUser(boolean trace, boolean traceSand, boolean traceTNT, boolean tracePlayer, boolean endPosSand, boolean endPosTNT, boolean startPosSand, boolean startPosTNT, boolean tickConnect, boolean hypotenusal, double minDistance, double traceRadius, double viewRadius, int maxParticles, int traceTime) {
+    private TracerUser(boolean trace, boolean traceSand, boolean traceTNT, boolean tracePlayer, boolean endPosSand, boolean endPosTNT, boolean startPosSand, boolean startPosTNT, boolean tickConnect, boolean hypotenusal, double minDistance, double traceRadius, int maxParticles, int traceTime) {
         this.trace = trace;
         this.traceSand = traceSand;
         this.traceTNT = traceTNT;
@@ -46,13 +43,12 @@ public class TracerUser implements Serializable {
         this.hypotenusal = hypotenusal;
         this.minDistance = minDistance;
         this.traceRadius = traceRadius;
-        this.viewRadius = viewRadius;
         this.maxParticles = maxParticles;
         this.traceTime = traceTime;
     }
 
     private TracerUser() {
-        this(false, true, true, false, false, true, false, true, true, false, 5.0D, 100D, 0D, 1000, 100);
+        this(false, true, true, false, false, true, false, true, true, false, 5.0D, 100D, 1000, 100);
     }
 
     public static TracerUser getUser(UUID uuid) {
@@ -149,10 +145,6 @@ public class TracerUser implements Serializable {
         this.hypotenusal = !this.hypotenusal;
     }
 
-    public boolean isUnlimitedRadius() {
-        return this.unlimitedRadius;
-    }
-
     public double getMinDistance() {
         return minDistance;
     }
@@ -167,10 +159,6 @@ public class TracerUser implements Serializable {
 
     public void setTraceRadius(double traceRadius) {
         this.traceRadius = traceRadius;
-    }
-
-    public double getViewRadius() {
-        return viewRadius;
     }
 
     public int getMaxParticles() {
@@ -189,87 +177,49 @@ public class TracerUser implements Serializable {
         this.traceTime = traceTime;
     }
 
-    public Set<ParticleLocation> getParticleLocations() {
-        this.unNull();
-
-        return this.pLocs;
+    public Map<World, ParticleSystem> getParticleSystems() {
+        return particleSystems;
     }
 
-    public void unNull() {
-        if (this.pLocs == null) {
-            this.pLocs = new HashSet<>();
+    public ParticleSystem getParticleSystem(World world) {
+        ParticleSystem particleSystem = this.particleSystems.get(world);
+        if (particleSystem == null) {
+            particleSystem = new ParticleSystem();
+            particleSystems.put(world, particleSystem);
         }
+        return particleSystem;
     }
 
     public void clearParticles() {
-        this.unNull();
-
-        this.pLocs.clear();
+        this.particleSystems.clear();
     }
 
     public void clearTNT() {
-        this.unNull();
-
-        this.pLocs.removeIf(pLocation -> pLocation.getType().compareTo(ParticleType.TNT) == 0 || pLocation.getType().compareTo(ParticleType.TNTENDPOS) == 0);
+        for (ParticleSystem particleSystem : particleSystems.values()) {
+            particleSystem.removeIf(p -> p.getType() == ParticleType.TNT || p.getType() == ParticleType.TNTENDPOS);
+        }
     }
 
     public void clearSand() {
-        this.unNull();
-
-        this.pLocs.removeIf(pLocation -> pLocation.getType().equals(ParticleType.SAND) || pLocation.getType().equals(ParticleType.SANDENDPOS));
+        for (ParticleSystem particleSystem : particleSystems.values()) {
+            particleSystem.removeIf(p -> p.getType() == ParticleType.SAND || p.getType() == ParticleType.SANDENDPOS);
+        }
     }
 
     public void clearPlayer() {
-        this.unNull();
-
-        this.pLocs.removeIf(pLocation -> pLocation.getType().equals(ParticleType.PLAYER));
-    }
-
-    public void addLine(Line line) {
-        this.addAllParticles(line.getParticles(this.getTraceTime()));
-    }
-
-    private void addAllParticles(Iterable<ParticleLocation> pI) {
-        this.unNull();
-
-        if (this.pLocs.size() != 0 && !(this.pLocs.iterator().next().getLocation().getWorld() == pI.iterator().next().getLocation().getWorld())) {
-            this.pLocs.clear();
-        }
-
-        for (ParticleLocation pl : pI) {
-            this.pLocs.remove(pl);
-            this.pLocs.add(pl);
+        for (ParticleSystem particleSystem : particleSystems.values()) {
+            particleSystem.removeIf(p -> p.getType() == ParticleType.PLAYER);
         }
     }
 
-    public void updateRadius(Location loc) {
-        this.unNull();
+    public void addLine(World world, Line line) {
+        this.addAllParticles(world, line.getParticles(this.getTraceTime()));
+    }
 
-        if (this.pLocs.size() != 0 && !(loc.getWorld() == this.pLocs.iterator().next().getLocation().getWorld())) {
-            this.pLocs.clear();
-
-            return;
-        }
-
-        if (this.maxParticles > this.pLocs.size()) {
-            this.unlimitedRadius = true;
-        } else {
-            this.unlimitedRadius = false;
-
-            List<ParticleLocation> pLAL = new ArrayList<>(this.pLocs);
-            PriorityQueue<ParticleLocation> pq = new PriorityQueue<>((new ParticleLocationComparator(loc)).reversed());
-            pq.addAll(pLAL.subList(0, this.maxParticles));
-
-            for (int i = this.maxParticles; i < this.pLocs.size(); i++) {
-                if (pq.comparator().compare(pLAL.get(i), pq.peek()) > 0) {
-                    pq.poll();
-                    pq.add(pLAL.get(i));
-                }
-            }
-
-            if (pq.peek() == null) return;
-
-            this.viewRadius = loc.distance(pq.peek().getLocation());
+    private void addAllParticles(World world, Iterable<TraceParticle> pI) {
+        ParticleSystem particleSystem = getParticleSystem(world);
+        for (TraceParticle pl : pI) {
+            particleSystem.writeParticle(pl);
         }
     }
 
@@ -312,4 +262,8 @@ public class TracerUser implements Serializable {
         this.traceTime = other.traceTime;
     }
 
+    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        ois.defaultReadObject();
+        particleSystems = new HashMap<>();
+    }
 }

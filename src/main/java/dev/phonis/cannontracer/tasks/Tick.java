@@ -1,5 +1,6 @@
 package dev.phonis.cannontracer.tasks;
 
+import dev.phonis.cannontracer.Profiling;
 import net.minecraft.server.v1_8_R3.EnumParticle;
 import net.minecraft.server.v1_8_R3.PacketPlayOutWorldParticles;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
@@ -14,18 +15,24 @@ import dev.phonis.cannontracer.serializable.TracerUser;
 import dev.phonis.cannontracer.trace.*;
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Tick implements Runnable {
 
     private static final int maxPayloadSize = 30000;
 
+    private final Logger logger;
+    private final Profiling profiler;
     private final Set<LocationChange> changes = new HashSet<>();
     public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
     private int tickCount = 0;
 
-    public Tick(CannonTracer cannonTracer) {
+    public Tick(CannonTracer cannonTracer, Logger logger) {
         this.cannonTracer = cannonTracer;
+        this.logger = logger;
+        this.profiler = new Profiling(logger);
     }
 
     public void start() {
@@ -91,45 +98,31 @@ public class Tick implements Runnable {
         }
     }
 
-    private void updateTick() {
-        if (this.tickCount == 5) {
-            this.tickCount = 0;
-        } else {
-            this.tickCount += 1;
-        }
-    }
-
     private void sendPackets(TracerUser tu, Player player) {
+        World playerWorld = player.getWorld();
+        if (playerWorld == null) return;
+
         PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-        Iterator<ParticleLocation> it = tu.getParticleLocations().iterator();
+        ParticleSystem particleSystem = tu.getParticleSystem(playerWorld);
+        long startGetClosestParticles = System.nanoTime();
+        List<TraceParticle> particles = particleSystem.getClosestParticles(player.getLocation(), tu.getMaxParticles());
+        Profiling.GetClosestParticles += System.nanoTime() - startGetClosestParticles;
+        for (TraceParticle particle : particles) {
+            Location pLoc = particle.getLocation();
+            PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
+                EnumParticle.REDSTONE,
+                true,
+                (float) pLoc.getX(),
+                (float) pLoc.getY(),
+                (float) pLoc.getZ(),
+                particle.getType().getRGB().getR() / 255f - 1,
+                particle.getType().getRGB().getG() / 255f,
+                particle.getType().getRGB().getB() / 255f,
+                1,
+                0
+            );
 
-        while (it.hasNext()) {
-            ParticleLocation pLocation = it.next();
-
-            if (pLocation.getLocation().getWorld() != null && pLocation.getLocation().getWorld().equals(player.getWorld())) {
-                if (tickCount == 5 && (pLocation.getLocation().distance(player.getLocation()) < tu.getViewRadius() || tu.isUnlimitedRadius())) {
-                    PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
-                        EnumParticle.REDSTONE,
-                        true,
-                        (float) pLocation.getLocation().getX(),
-                        (float) pLocation.getLocation().getY(),
-                        (float) pLocation.getLocation().getZ(),
-                        pLocation.getType().getRGB().getR() / 255f - 1,
-                        pLocation.getType().getRGB().getG() / 255f,
-                        pLocation.getType().getRGB().getB() / 255f,
-                        1,
-                        0
-                    );
-
-                    connection.sendPacket(packet);
-                }
-            }
-
-            pLocation.decLife();
-
-            if (pLocation.getLife() == 0) {
-                it.remove();
-            }
+            connection.sendPacket(packet);
         }
     }
 
@@ -161,7 +154,7 @@ public class Tick implements Runnable {
                     totalLines.add(CTAdapter.fromLine(line, (short) -1));
                     totalArtifacts.addAll(CTAdapter.artifactsFromLine(line, (short) -1));
                 } else {
-                    tu.addLine(line);
+                    tu.addLine(player.getWorld(), line);
                 }
             }
         }
@@ -225,7 +218,9 @@ public class Tick implements Runnable {
 
     @Override
     public void run() {
+        long runStart = System.nanoTime();
         this.processEntities();
+        Profiling.ProcessEntities += System.nanoTime() - runStart;
 
         Set<UUID> keySet = TracerUser.hmd.data.keySet();
 
@@ -233,6 +228,14 @@ public class Tick implements Runnable {
             TracerUser tu = TracerUser.getUser(uuid);
 
             if (tu.isTrace()) {
+                // Despawn expired particles
+                if (tickCount % 20 == 0) {
+                    for (ParticleSystem particleSystem : tu.getParticleSystems().values()) {
+                        particleSystem.processDespawnQueue();
+                        particleSystem.rebuildIfSaturated();
+                    }
+                }
+
                 Player player = Bukkit.getPlayer(uuid);
 
                 if (player != null) {
@@ -299,19 +302,22 @@ public class Tick implements Runnable {
                     }
 
                     boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
-
+                    long startHandleTraces = System.nanoTime();
                     this.handleTraces(traces, tu, isSubscribed, player);
-
+                    Profiling.HandleTraces += System.nanoTime() - startHandleTraces;
                     if (!isSubscribed) {
-                        tu.updateRadius(player.getLocation());
-                        this.sendPackets(tu, player);
+                        long startSendPackets = System.nanoTime();
+                        if (tickCount % 5 == 0) this.sendPackets(tu, player);
+                        Profiling.SendPackets += System.nanoTime() - startSendPackets;
                     }
                 }
             }
         }
 
         this.changes.clear();
-        this.updateTick();
+        ++tickCount;
+        Profiling.Run += System.nanoTime() - runStart;
+        profiler.Tick();
     }
 
 }
