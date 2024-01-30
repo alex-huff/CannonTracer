@@ -25,11 +25,11 @@ public class Profiling {
             ticksUntilLog = TicksBetweenLogs;
             logger.log(Level.INFO,
                     "Profiling Statistics:" +
-                        "\n    Run:                   " + Run / 1000000 + " ms (+" + (Run - lastRun) / 1000000 + " ms)" +
-                        "\n    ProcessEntities:       " + (float) ProcessEntities / Run * 100 + " %" +
-                        "\n    HandleTraces:          " + (float) HandleTraces / Run * 100 + " %" +
-                        "\n    SendPackets:           " + (float) SendPackets / Run * 100 + " %" +
-                        "\n      GetClosestParticles: " + (float) GetClosestParticles / Run * 100 + " %");
+                        "\n    Run:                  " + Run / 1000000 + " ms (+" + (Run - lastRun) / 1000000 + " ms)" +
+                        "\n    ProcessEntities:      " + (float) ProcessEntities / Run * 100 + " %" +
+                        "\n    HandleTraces:         " + (float) HandleTraces / Run * 100 + " %" +
+                        "\n    SendPackets:          " + (float) SendPackets / Run * 100 + " %" +
+                        "\n      GetClosestParticles:  " + (float) GetClosestParticles / Run * 100 + " %");
             lastRun = Run;
         }
     }

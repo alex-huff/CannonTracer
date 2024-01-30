@@ -7,21 +7,14 @@ import org.bukkit.entity.EntityType;
 
 public class EntityLocation {
     private final Location location;
-    private boolean keepAlive;
+    private int lastUpdated;
     private final boolean newEntity;
     private final EntityType type;
 
-    public EntityLocation(Location location, boolean newEntity, EntityType type) {
+    public EntityLocation(Location location, int lastUpdated, boolean newEntity, EntityType type) {
         this.location = location;
-        this.keepAlive = true;
+        this.lastUpdated = lastUpdated;
         this.newEntity = newEntity;
-        this.type = type;
-    }
-
-    public EntityLocation(Location location, EntityType type) {
-        this.location = location;
-        this.keepAlive = true;
-        this.newEntity = false;
         this.type = type;
     }
 
@@ -29,12 +22,12 @@ public class EntityLocation {
         return this.type;
     }
 
-    public void kill() {
-        this.keepAlive = false;
+    public void setLastUpdated(int lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 
-    public boolean getState() {
-        return this.keepAlive;
+    public int getLastUpdated() {
+        return this.lastUpdated;
     }
 
     public Location getLocation() {
@@ -47,10 +40,10 @@ public class EntityLocation {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 31).
-                                              append(this.location).
-                                                                       append(this.type).
-                                                                                            toHashCode();
+        return new HashCodeBuilder(17, 31)
+                .append(this.location)
+                .append(this.type)
+                .toHashCode();
     }
 
     @Override
@@ -65,10 +58,10 @@ public class EntityLocation {
 
         final EntityLocation other = (EntityLocation) obj;
 
-        return new EqualsBuilder().
-                                      append(this.getLocation(), other.getLocation()).
-                                                                                         append(this.getType(), other.getType()).
-                                                                                                                                    isEquals();
+        return new EqualsBuilder()
+                .append(this.getLocation(), other.getLocation())
+                .append(this.getType(), other.getType())
+                .isEquals();
     }
 
 }
