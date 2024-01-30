@@ -15,7 +15,6 @@ import dev.phonis.cannontracer.serializable.TracerUser;
 import dev.phonis.cannontracer.trace.*;
 
 import java.util.*;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Tick implements Runnable {
@@ -24,7 +23,7 @@ public class Tick implements Runnable {
 
     private final Logger logger;
     private final Profiling profiler;
-    private final Set<LocationChange> changes = new HashSet<>();
+    private final List<LocationChange> changes = new ArrayList<>();
     public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
     private int tickCount = 0;
@@ -43,6 +42,112 @@ public class Tick implements Runnable {
         this.changes.add(lc);
     }
 
+    @Override
+    public void run() {
+        long runStart = System.nanoTime();
+        this.processEntities();
+        Profiling.ProcessEntities += System.nanoTime() - runStart;
+
+        Set<UUID> keySet = TracerUser.hmd.data.keySet();
+
+        int tickOffset = 0;
+        for (UUID uuid : keySet) {
+            tickOffset += 3;
+            TracerUser tu = TracerUser.getUser(uuid);
+
+            if (tu.isTrace()) {
+                // Despawn expired particles
+                if ((tickCount + tickOffset) % 20 == 0) {
+                    for (ParticleSystem particleSystem : tu.getParticleSystems().values()) {
+                        particleSystem.processDespawnQueue();
+                        particleSystem.rebuildIfSaturated();
+                    }
+                }
+
+                Player player = Bukkit.getPlayer(uuid);
+
+                if (player != null) {
+                    List<Trace> traces = new ArrayList<>();
+
+                    for (LocationChange change : this.changes) {
+                        if (
+                            change.getWorld() == player.getWorld()
+                                && change.getVelocity() >= tu.getMinDistance()
+                                && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
+                        ) {
+                            if (change.getType().equals(EntityType.PRIMED_TNT) && tu.isTraceTNT()) {
+                                boolean start = false;
+                                boolean finish = false;
+
+                                if (change.getChangeType().equals(ChangeType.END)) {
+                                    finish = tu.isEndPosTNT();
+                                } else if (change.getChangeType().equals(ChangeType.START)) {
+                                    start = tu.isStartPosTNT();
+                                }
+
+
+                                traces.add(
+                                    new TNTTrace(
+                                        change.getStart(),
+                                        change.getFinish(),
+                                        start,
+                                        finish,
+                                        tu.isTickConnect(),
+                                        tu.isHypotenusal()
+                                    )
+                                );
+                            } else if (change.getType().equals(EntityType.FALLING_BLOCK) && tu.isTraceSand()) {
+                                boolean start = false;
+                                boolean finish = false;
+
+                                if (change.getChangeType().equals(ChangeType.END)) {
+                                    finish = tu.isEndPosSand();
+                                } else if (change.getChangeType().equals(ChangeType.START)) {
+                                    start = tu.isStartPosSand();
+                                }
+
+                                traces.add(
+                                    new SandTrace(
+                                        change.getStart(),
+                                        change.getFinish(),
+                                        start,
+                                        finish,
+                                        tu.isTickConnect(),
+                                        tu.isHypotenusal()
+                                    )
+                                );
+                            } else if (change.getType().equals(EntityType.PLAYER) && tu.isTracePlayer()) {
+                                traces.add(
+                                    new PlayerTrace(
+                                        change.getStart(),
+                                        change.getFinish(),
+                                        tu.isTickConnect(),
+                                        tu.isHypotenusal()
+                                    )
+                                );
+                            }
+                        }
+                    }
+
+                    boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
+                    long startHandleTraces = System.nanoTime();
+                    this.handleTraces(traces, tu, isSubscribed, player);
+                    Profiling.HandleTraces += System.nanoTime() - startHandleTraces;
+                    if (!isSubscribed) {
+                        long startSendPackets = System.nanoTime();
+                        if ((tickCount + tickOffset) % 5 == 0) this.sendPackets(tu, player);
+                        Profiling.SendPackets += System.nanoTime() - startSendPackets;
+                    }
+                }
+            }
+        }
+
+        this.changes.clear();
+        ++tickCount;
+        Profiling.Run += System.nanoTime() - runStart;
+        profiler.Tick();
+    }
+
     private void processEntity(World world, Entity entity) {
         Location loc = entity.getLocation();
         int id = entity.getEntityId();
@@ -52,7 +157,7 @@ public class Tick implements Runnable {
             Location old = this.locations.get(id).getLocation();
 
             if (!Objects.equals(old.getWorld(), loc.getWorld())) {
-                el = new EntityLocation(loc, true, entity.getType());
+                el = new EntityLocation(loc, tickCount, true, entity.getType());
             } else {
                 LocationChange change;
 
@@ -66,36 +171,26 @@ public class Tick implements Runnable {
                     this.changes.add(change);
                 }
 
-                el = new EntityLocation(loc, false, entity.getType());
+                el = new EntityLocation(loc, tickCount, false, entity.getType());
             }
         } else {
-            el = new EntityLocation(loc, true, entity.getType());
+            el = new EntityLocation(loc, tickCount, true, entity.getType());
         }
 
         this.locations.put(entity.getEntityId(), el);
     }
 
     private void processEntities() {
+        int entityCount = 0;
         for (World world : Bukkit.getServer().getWorlds()) {
             for (Entity entity : world.getEntitiesByClasses(FallingBlock.class, TNTPrimed.class, Player.class)) {
                 this.processEntity(world, entity);
+                ++entityCount;
             }
         }
 
-        Set<Integer> keys = this.locations.keySet();
-        List<Integer> removeList = new ArrayList<>();
-
-        for (int key : keys) {
-            if (this.locations.get(key).getState()) {
-                this.locations.get(key).kill();
-            } else {
-                removeList.add(key);
-            }
-        }
-
-        for (int key : removeList) {
-            this.locations.remove(key);
-        }
+        if (locations.size() > entityCount * 3)
+            this.locations.values().removeIf(next -> next.getLastUpdated() != tickCount);
     }
 
     private void sendPackets(TracerUser tu, Player player) {
@@ -110,16 +205,16 @@ public class Tick implements Runnable {
         for (TraceParticle particle : particles) {
             Location pLoc = particle.getLocation();
             PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
-                EnumParticle.REDSTONE,
-                true,
-                (float) pLoc.getX(),
-                (float) pLoc.getY(),
-                (float) pLoc.getZ(),
-                particle.getType().getRGB().getR() / 255f - 1,
-                particle.getType().getRGB().getG() / 255f,
-                particle.getType().getRGB().getB() / 255f,
-                1,
-                0
+                    EnumParticle.REDSTONE,
+                    true,
+                    (float) pLoc.getX(),
+                    (float) pLoc.getY(),
+                    (float) pLoc.getZ(),
+                    particle.getType().getRGB().getR() / 255f - 1,
+                    particle.getType().getRGB().getG() / 255f,
+                    particle.getType().getRGB().getB() / 255f,
+                    1,
+                    0
             );
 
             connection.sendPacket(packet);
@@ -215,109 +310,4 @@ public class Tick implements Runnable {
                 CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), ticks, currentPacket));
         }
     }
-
-    @Override
-    public void run() {
-        long runStart = System.nanoTime();
-        this.processEntities();
-        Profiling.ProcessEntities += System.nanoTime() - runStart;
-
-        Set<UUID> keySet = TracerUser.hmd.data.keySet();
-
-        for (UUID uuid : keySet) {
-            TracerUser tu = TracerUser.getUser(uuid);
-
-            if (tu.isTrace()) {
-                // Despawn expired particles
-                if (tickCount % 20 == 0) {
-                    for (ParticleSystem particleSystem : tu.getParticleSystems().values()) {
-                        particleSystem.processDespawnQueue();
-                        particleSystem.rebuildIfSaturated();
-                    }
-                }
-
-                Player player = Bukkit.getPlayer(uuid);
-
-                if (player != null) {
-                    List<Trace> traces = new ArrayList<>();
-
-                    for (LocationChange change : this.changes) {
-                        if (
-                            change.getWorld() == player.getWorld()
-                                && change.getVelocity() >= tu.getMinDistance()
-                                && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
-                        ) {
-                            if (change.getType().equals(EntityType.PRIMED_TNT) && tu.isTraceTNT()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosTNT();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosTNT();
-                                }
-
-
-                                traces.add(
-                                    new TNTTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.FALLING_BLOCK) && tu.isTraceSand()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosSand();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosSand();
-                                }
-
-                                traces.add(
-                                    new SandTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.PLAYER) && tu.isTracePlayer()) {
-                                traces.add(
-                                    new PlayerTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            }
-                        }
-                    }
-
-                    boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
-                    long startHandleTraces = System.nanoTime();
-                    this.handleTraces(traces, tu, isSubscribed, player);
-                    Profiling.HandleTraces += System.nanoTime() - startHandleTraces;
-                    if (!isSubscribed) {
-                        long startSendPackets = System.nanoTime();
-                        if (tickCount % 5 == 0) this.sendPackets(tu, player);
-                        Profiling.SendPackets += System.nanoTime() - startSendPackets;
-                    }
-                }
-            }
-        }
-
-        this.changes.clear();
-        ++tickCount;
-        Profiling.Run += System.nanoTime() - runStart;
-        profiler.Tick();
-    }
-
 }
