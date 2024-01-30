@@ -23,7 +23,7 @@ public class Tick implements Runnable {
 
     private final Logger logger;
     private final Profiling profiler;
-    private final Set<LocationChange> changes = new HashSet<>();
+    private final List<LocationChange> changes = new ArrayList<>();
     public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
     private int tickCount = 0;
