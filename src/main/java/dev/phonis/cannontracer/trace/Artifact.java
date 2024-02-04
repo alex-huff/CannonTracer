@@ -32,14 +32,14 @@ public class Artifact {
         return this.offsetType;
     }
 
-    public List<ParticleLocation> getParticles(int life) {
-        List<ParticleLocation> ret = new ArrayList<>();
+    public List<TraceParticle> getParticles(int life) {
+        List<TraceParticle> ret = new ArrayList<>();
 
         for (Offset offset : this.getOffsetType().getOffset()) {
             ret.add(
-                new ParticleLocation(
+                new TraceParticle(
                     this.location.clone().add(offset.getX(), offset.getY(), offset.getZ()),
-                    life,
+                    System.currentTimeMillis() + life * 50L, // TODO convert life upstream to timestamp
                     this.type
                 )
             );
@@ -50,11 +50,11 @@ public class Artifact {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 31).
-                                              append(this.location).
-                                                                       append(this.type).
-                                                                                            append(this.offsetType).
-                                                                                                                       toHashCode();
+        return new HashCodeBuilder(17, 31)
+                .append(this.location)
+                .append(this.type)
+                .append(this.offsetType)
+                .toHashCode();
     }
 
     @Override
@@ -69,11 +69,11 @@ public class Artifact {
 
         final Artifact other = (Artifact) obj;
 
-        return new EqualsBuilder().
-                                      append(this.location, other.location).
-                                                                               append(this.type, other.type).
-                                                                                                                append(this.offsetType, other.offsetType).
-                                                                                                                                                             isEquals();
+        return new EqualsBuilder()
+                .append(this.location, other.location)
+                .append(this.type, other.type)
+                .append(this.offsetType, other.offsetType)
+                .isEquals();
     }
 
 }

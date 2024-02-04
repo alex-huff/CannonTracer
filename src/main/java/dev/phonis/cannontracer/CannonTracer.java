@@ -41,7 +41,7 @@ public class CannonTracer extends JavaPlugin {
         Bukkit.getMessenger().registerIncomingPluginChannel(this, CTManager.CTChannel, this.ctListener);
         Bukkit.getMessenger().registerOutgoingPluginChannel(this, CTManager.CTChannel);
 
-        Tick tick = new Tick(this);
+        Tick tick = new Tick(this, log);
 
         new CommandTracer(this, "tracer");
 

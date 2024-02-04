@@ -14,18 +14,21 @@ import dev.phonis.cannontracer.serializable.TracerUser;
 import dev.phonis.cannontracer.trace.*;
 
 import java.util.*;
+import java.util.logging.Logger;
 
 public class Tick implements Runnable {
 
     private static final int maxPayloadSize = 30000;
 
-    private final Set<LocationChange> changes = new HashSet<>();
+    private final Logger logger;
+    private final List<LocationChange> changes = new ArrayList<>();
     public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
     private int tickCount = 0;
 
-    public Tick(CannonTracer cannonTracer) {
+    public Tick(CannonTracer cannonTracer, Logger logger) {
         this.cannonTracer = cannonTracer;
+        this.logger = logger;
     }
 
     public void start() {
@@ -34,6 +37,44 @@ public class Tick implements Runnable {
 
     public void addChange(LocationChange lc) {
         this.changes.add(lc);
+    }
+
+    @Override
+    public void run() {
+        this.processEntities();
+
+        Set<UUID> keySet = TracerUser.hmd.data.keySet();
+
+        int tickOffset = 0;
+        for (UUID uuid : keySet) {
+            tickOffset += 3;
+            TracerUser tu = TracerUser.getUser(uuid);
+
+            if (tu.isTrace()) {
+                // Despawn expired particles
+                if ((tickCount + tickOffset) % 20 == 0) {
+                    for (ParticleSystem particleSystem : tu.getParticleSystems().values()) {
+                        particleSystem.processDespawnQueue();
+                        particleSystem.rebuildIfSaturated();
+                    }
+                }
+
+                Player player = Bukkit.getPlayer(uuid);
+
+                if (player != null && player.isOnline()) {
+                    Map<LineIntercepts, LineSet> lineSystem = buildLineSystem(tu, player);
+
+                    boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
+                    this.handleLineSystem(lineSystem, tu, isSubscribed, player);
+                    if (!isSubscribed) {
+                        if ((tickCount + tickOffset) % 5 == 0) this.sendPackets(tu, player);
+                    }
+                }
+            }
+        }
+
+        this.changes.clear();
+        ++tickCount;
     }
 
     private void processEntity(World world, Entity entity) {
@@ -45,7 +86,7 @@ public class Tick implements Runnable {
             Location old = this.locations.get(id).getLocation();
 
             if (!Objects.equals(old.getWorld(), loc.getWorld())) {
-                el = new EntityLocation(loc, true, entity.getType());
+                el = new EntityLocation(loc, tickCount, true, entity.getType());
             } else {
                 LocationChange change;
 
@@ -59,109 +100,155 @@ public class Tick implements Runnable {
                     this.changes.add(change);
                 }
 
-                el = new EntityLocation(loc, false, entity.getType());
+                el = new EntityLocation(loc, tickCount, false, entity.getType());
             }
         } else {
-            el = new EntityLocation(loc, true, entity.getType());
+            el = new EntityLocation(loc, tickCount, true, entity.getType());
         }
 
         this.locations.put(entity.getEntityId(), el);
     }
 
     private void processEntities() {
+        int entityCount = 0;
         for (World world : Bukkit.getServer().getWorlds()) {
             for (Entity entity : world.getEntitiesByClasses(FallingBlock.class, TNTPrimed.class, Player.class)) {
                 this.processEntity(world, entity);
+                ++entityCount;
             }
         }
 
-        Set<Integer> keys = this.locations.keySet();
-        List<Integer> removeList = new ArrayList<>();
-
-        for (int key : keys) {
-            if (this.locations.get(key).getState()) {
-                this.locations.get(key).kill();
-            } else {
-                removeList.add(key);
-            }
-        }
-
-        for (int key : removeList) {
-            this.locations.remove(key);
-        }
-    }
-
-    private void updateTick() {
-        if (this.tickCount == 5) {
-            this.tickCount = 0;
-        } else {
-            this.tickCount += 1;
-        }
+        if (locations.size() > entityCount * 3)
+            this.locations.values().removeIf(next -> next.getLastUpdated() != tickCount);
     }
 
     private void sendPackets(TracerUser tu, Player player) {
+        World playerWorld = player.getWorld();
+        if (playerWorld == null) return;
+
         PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-        Iterator<ParticleLocation> it = tu.getParticleLocations().iterator();
+        ParticleSystem particleSystem = tu.getParticleSystem(playerWorld);
+        List<TraceParticle> particles = particleSystem.getClosestParticles(player.getLocation(), tu.getMaxParticles());
+        for (TraceParticle particle : particles) {
+            Location pLoc = particle.getLocation();
+            PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
+                    EnumParticle.REDSTONE,
+                    true,
+                    (float) pLoc.getX(),
+                    (float) pLoc.getY(),
+                    (float) pLoc.getZ(),
+                    particle.getType().getRGB().getR() / 255f - 1,
+                    particle.getType().getRGB().getG() / 255f,
+                    particle.getType().getRGB().getB() / 255f,
+                    1,
+                    0
+            );
 
-        while (it.hasNext()) {
-            ParticleLocation pLocation = it.next();
-
-            if (pLocation.getLocation().getWorld() != null && pLocation.getLocation().getWorld().equals(player.getWorld())) {
-                if (tickCount == 5 && (pLocation.getLocation().distance(player.getLocation()) < tu.getViewRadius() || tu.isUnlimitedRadius())) {
-                    PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
-                        EnumParticle.REDSTONE,
-                        true,
-                        (float) pLocation.getLocation().getX(),
-                        (float) pLocation.getLocation().getY(),
-                        (float) pLocation.getLocation().getZ(),
-                        pLocation.getType().getRGB().getR() / 255f - 1,
-                        pLocation.getType().getRGB().getG() / 255f,
-                        pLocation.getType().getRGB().getB() / 255f,
-                        1,
-                        0
-                    );
-
-                    connection.sendPacket(packet);
-                }
-            }
-
-            pLocation.decLife();
-
-            if (pLocation.getLife() == 0) {
-                it.remove();
-            }
+            connection.sendPacket(packet);
         }
     }
 
-    private void handleTraces(List<Trace> traces, TracerUser tu, boolean isSubscribed, Player player) {
-        Map<LineEq, LineSet> culledLines = new HashMap<>();
-        int culledLineCount = 0;
+    private Map<LineIntercepts, LineSet> buildLineSystem(TracerUser tu, Player player) {
+        Map<LineIntercepts, LineSet> lineSystem = new HashMap<>();
 
-        for (Trace trace : traces) {
-            List<Line> lines = trace.getLines();
+        LocationChange lastChange = null;
+        for (LocationChange change : this.changes) {
+            if (change.equals(lastChange)) continue;
+            lastChange = change;
 
-            for (Line line : lines) {
-                if (!culledLines.containsKey(line.getLineEq())) {
-                    culledLines.put(line.getLineEq(), new LineSet(tu.isTickConnect()));
+            if (
+                    change.getWorld() == player.getWorld()
+                            && change.getVelocity() >= tu.getMinDistance()
+                            && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
+            ) {
+                if (tu.isTraceTNT() && change.getType().equals(EntityType.PRIMED_TNT)) {
+                    boolean start = false;
+                    boolean finish = false;
+
+                    if (change.getChangeType().equals(ChangeType.END)) {
+                        finish = tu.isEndPosTNT();
+                    } else if (change.getChangeType().equals(ChangeType.START)) {
+                        start = tu.isStartPosTNT();
+                    }
+
+                    addToLineSystem(
+                            lineSystem,
+                            new TNTTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    start,
+                                    finish,
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
+
+                } else if (tu.isTraceSand() && change.getType().equals(EntityType.FALLING_BLOCK)) {
+                    boolean start = false;
+                    boolean finish = false;
+
+                    if (change.getChangeType().equals(ChangeType.END)) {
+                        finish = tu.isEndPosSand();
+                    } else if (change.getChangeType().equals(ChangeType.START)) {
+                        start = tu.isStartPosSand();
+                    }
+
+                    addToLineSystem(
+                            lineSystem,
+                            new SandTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    start,
+                                    finish,
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
+
+                } else if (tu.isTracePlayer() && change.getType().equals(EntityType.PLAYER)) {
+                    addToLineSystem(
+                            lineSystem,
+                            new PlayerTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
                 }
-
-                culledLineCount += culledLines.get(line.getLineEq()).add(line) ? 0 : 1;
             }
         }
+        return lineSystem;
+    }
 
-        // System.out.println("Culled lines: " + culledLineCount);
+    private void addToLineSystem(Map<LineIntercepts, LineSet> lineSystem, List<Line> lines, boolean isTickConnect) {
+        for (Line line : lines) {
+            LineIntercepts lineIntercepts = line.getLineIntercepts();
 
+            LineSet lineSet = lineSystem.get(lineIntercepts);
+            if (lineSet == null) {
+                lineSet = new LineSet(isTickConnect);
+                lineSystem.put(lineIntercepts,lineSet);
+            }
+            lineSet.add(line);
+        }
+    }
+
+    private void handleLineSystem(Map<LineIntercepts, LineSet> lineSystem, TracerUser tu, boolean isSubscribed, Player player) {
         List<CTLine> totalLines = new ArrayList<>();
         Set<CTArtifact> totalArtifacts = new HashSet<>();
 
-        for (LineEq lineEq : culledLines.keySet()) {
-            for (Line line : culledLines.get(lineEq)) {
+        for (LineSet lineSet : lineSystem.values()) {
+            for (Line line : lineSet) {
                 if (isSubscribed) {
                     // ticks does not matter since it is inferred by client from NewLines/Artifacts packet
                     totalLines.add(CTAdapter.fromLine(line, (short) -1));
                     totalArtifacts.addAll(CTAdapter.artifactsFromLine(line, (short) -1));
                 } else {
-                    tu.addLine(line);
+                    tu.addLine(player.getWorld(), line);
                 }
             }
         }
@@ -222,96 +309,4 @@ public class Tick implements Runnable {
                 CTManager.sendToPlayer(player, new CTNewArtifacts(player.getWorld().getUID(), ticks, currentPacket));
         }
     }
-
-    @Override
-    public void run() {
-        this.processEntities();
-
-        Set<UUID> keySet = TracerUser.hmd.data.keySet();
-
-        for (UUID uuid : keySet) {
-            TracerUser tu = TracerUser.getUser(uuid);
-
-            if (tu.isTrace()) {
-                Player player = Bukkit.getPlayer(uuid);
-
-                if (player != null) {
-                    List<Trace> traces = new ArrayList<>();
-
-                    for (LocationChange change : this.changes) {
-                        if (
-                            change.getWorld() == player.getWorld()
-                                && change.getVelocity() >= tu.getMinDistance()
-                                && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
-                        ) {
-                            if (change.getType().equals(EntityType.PRIMED_TNT) && tu.isTraceTNT()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosTNT();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosTNT();
-                                }
-
-
-                                traces.add(
-                                    new TNTTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.FALLING_BLOCK) && tu.isTraceSand()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosSand();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosSand();
-                                }
-
-                                traces.add(
-                                    new SandTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.PLAYER) && tu.isTracePlayer()) {
-                                traces.add(
-                                    new PlayerTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            }
-                        }
-                    }
-
-                    boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
-
-                    this.handleTraces(traces, tu, isSubscribed, player);
-
-                    if (!isSubscribed) {
-                        tu.updateRadius(player.getLocation());
-                        this.sendPackets(tu, player);
-                    }
-                }
-            }
-        }
-
-        this.changes.clear();
-        this.updateTick();
-    }
-
 }

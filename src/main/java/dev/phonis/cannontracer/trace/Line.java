@@ -3,28 +3,74 @@ package dev.phonis.cannontracer.trace;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
-public class Line {
+public class Line implements Comparable<Line> {
 
     private Location start;
     private Location finish;
+    private final Vector direction;
+    private double startIndex;
+    private double finishIndex;
     private final ParticleType type;
     private final boolean connected;
-    private final Vector direction;
-    private final LineEq lineEq;
+    private final LineIntercepts lineIntercepts;
     public final Set<Artifact> artifacts = new HashSet<>();
 
-    public Line(Location start, Location finish, ParticleType type, ParticleType startType, ParticleType finishType, OffsetType startOffsetType, OffsetType finishOffsetType, boolean connected) {
-        this.start = start;
-        this.finish = finish;
+    public Line(Location p1, Location p2, ParticleType type, ParticleType startType, ParticleType finishType, OffsetType startOffsetType, OffsetType finishOffsetType, boolean connected) throws IllegalArgumentException {
+        // Assign indexes and points to start/finish:
+        // 1. Find first indexable dimension in specific order
+        // 2. Assign points to start/finish by comparing positions in that dimension
+        // 3. Assign indexes as positions in that dimension
+        Vector direction1 = p2.clone().subtract(p1).toVector().normalize();
+        if (direction1.getX() != 0) {
+            if (p1.getX() < p2.getX()) {
+                start = p1;
+                finish = p2;
+            }
+            else {
+                start = p2;
+                finish = p1;
+            }
+            startIndex = start.getX();
+            finishIndex = finish.getX();
+        }
+        else if (direction1.getY() != 0) {
+            if (p1.getY() < p2.getY()) {
+                start = p1;
+                finish = p2;
+            }
+            else {
+                start = p2;
+                finish = p1;
+            }
+            startIndex = start.getY();
+            finishIndex = finish.getY();
+        }
+        else if (direction1.getZ() != 0) {
+            if (p1.getZ() < p2.getZ()) {
+                start = p1;
+                finish = p2;
+            }
+            else {
+                start = p2;
+                finish = p1;
+            }
+            startIndex = start.getZ();
+            finishIndex = finish.getZ();
+        }
+        else {
+            throw new IllegalArgumentException("Points did not describe a line! "
+                    + "p1 = `{ " + p1.getX() + ", " + p1.getY() + ", " + p1.getZ() + " }`, "
+                    + "p2 = `{ " + p2.getX() + ", " + p2.getY() + ", " + p2.getZ() + " }`");
+        }
+
+        direction1 = finish.clone().subtract(start).toVector().normalize();
+
+        direction = direction1;
         this.type = type;
         this.connected = connected;
-        this.direction = this.finish.clone().subtract(this.start).toVector().normalize();
-        this.lineEq = new LineEq(direction, this.start);
+        this.lineIntercepts = new LineIntercepts(direction, this.start);
 
         if (startType != null && startOffsetType != null) {
             this.artifacts.add(new Artifact(this.start, startType, startOffsetType));
@@ -35,78 +81,77 @@ public class Line {
         }
     }
 
-    public Line(Location start, Location finish, ParticleType type, boolean connected) {
-        this(start, finish, type, null, null, null, null, connected);
+    public Line(Location p1, Location p2, ParticleType type, boolean connected) {
+        this(p1, p2, type, null, null, null, null, connected);
     }
 
     public Location getStart() {
         return this.start;
     }
 
-    public void setStart(Location start) {
-        this.start = start;
-    }
-
     public Location getFinish() {
         return this.finish;
-    }
-
-    public void setFinish(Location finish) {
-        this.finish = finish;
-    }
-
-    public Vector getDirection() {
-        return this.direction;
     }
 
     public ParticleType getType() {
         return this.type;
     }
 
-    public Line getCombinedLine(Line other) {
-        if (this.start.distance(other.finish) >= other.start.distance(this.finish)) {
-            return new Line(this.start, other.finish, this.type, this.connected).addArtifacts(this).addArtifacts(other);
+    public int compareTo(Line other) {
+        return Double.compare(startIndex, other.startIndex);
+    }
+
+    public boolean overlaps(Line other) {
+        return startIndex <= other.finishIndex && other.startIndex <= finishIndex;
+    }
+
+    public void merge(Line other) {
+        if (startIndex > other.startIndex) {
+            startIndex = other.startIndex;
+            start = other.start;
+        }
+        if (finishIndex < other.finishIndex) {
+            finishIndex = other.finishIndex;
+            finish = other.finish;
         }
 
-        return new Line(other.start, this.finish, this.type, this.connected).addArtifacts(this).addArtifacts(other);
+        addArtifacts(other);
     }
 
-    public Line addArtifacts(Line other) {
-        if (!other.artifacts.isEmpty()) this.artifacts.addAll(other.artifacts);
-
-        return this;
+    public void addArtifacts(Line other) {
+        if (!other.artifacts.isEmpty()) artifacts.addAll(other.artifacts);
     }
 
-    public LineEq getLineEq() {
-        return this.lineEq;
+    public LineIntercepts getLineIntercepts() {
+        return this.lineIntercepts;
     }
 
-    private List<ParticleLocation> getEndParticles(int life) {
-        List<ParticleLocation> ret = new ArrayList<>();
+    private List<TraceParticle> getEndParticles(int life) {
+        List<TraceParticle> ret = new ArrayList<>();
 
-        ret.add(new ParticleLocation(this.start, life, this.type));
-        ret.add(new ParticleLocation(this.finish, life, this.type));
+        ret.add(new TraceParticle(this.start, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
+        ret.add(new TraceParticle(this.finish, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
 
         return ret;
     }
 
-    private List<ParticleLocation> getLineParticles(int life) {
+    private List<TraceParticle> getLineParticles(int life) {
         double distance = this.start.distance(this.finish);
         Vector intervalDirection = this.direction.multiply(.25);
         Vector di2 = intervalDirection.clone();
 
-        List<ParticleLocation> ret = new ArrayList<>(this.getEndParticles(life));
+        List<TraceParticle> ret = this.getEndParticles(life);
 
         while (di2.length() < distance) {
-            ret.add(new ParticleLocation(this.start.clone().add(di2.getX(), di2.getY(), di2.getZ()), life, this.type));
+            ret.add(new TraceParticle(this.start.clone().add(di2.getX(), di2.getY(), di2.getZ()), System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
             di2.add(intervalDirection);
         }
 
         return ret;
     }
 
-    public List<ParticleLocation> getParticles(int life) {
-        List<ParticleLocation> ret = new ArrayList<>();
+    public List<TraceParticle> getParticles(int life) {
+        List<TraceParticle> ret = new ArrayList<>();
 
         for (Artifact artifact : this.artifacts) {
             ret.addAll(artifact.getParticles(life));
@@ -117,73 +162,4 @@ public class Line {
 
         return ret;
     }
-
-    public boolean contains(Line other) {
-        return (
-            (
-                this.start.getX() <= this.finish.getX() &&
-                this.start.getX() <= other.start.getX() &&
-                    this.finish.getX() >= other.finish.getX()
-            ) || (
-                this.start.getX() >= this.finish.getX() &&
-                this.start.getX() >= other.start.getX() &&
-                    this.finish.getX() <= other.finish.getX()
-            )
-        ) && (
-            (
-                this.start.getY() <= this.finish.getY() &&
-                this.start.getY() <= other.start.getY() &&
-                    this.finish.getY() >= other.finish.getY()
-            ) || (
-                this.start.getY() >= this.finish.getY() &&
-                this.start.getY() >= other.start.getY() &&
-                    this.finish.getY() <= other.finish.getY()
-            )
-        ) && (
-            (
-                this.start.getZ() <= this.finish.getZ() &&
-                this.start.getZ() <= other.start.getZ() &&
-                    this.finish.getZ() >= other.finish.getZ()
-            ) || (
-                this.start.getZ() >= this.finish.getZ() &&
-                this.start.getZ() >= other.start.getZ() &&
-                    this.finish.getZ() <= other.finish.getZ()
-            )
-        );
-    }
-
-    public boolean overlaps(Line other) {
-        return (
-            (
-                this.start.getX() <= other.start.getX() &&
-                    this.finish.getX() <= other.finish.getX() &&
-                    this.finish.getX() >= other.start.getX()
-            ) || (
-                this.start.getX() >= other.start.getX() &&
-                    this.finish.getX() >= other.finish.getX() &&
-                    this.finish.getX() <= other.start.getX()
-            )
-        ) && (
-            (
-                this.start.getY() <= other.start.getY() &&
-                    this.finish.getY() <= other.finish.getY() &&
-                    this.finish.getY() >= other.start.getY()
-            ) || (
-                this.start.getY() >= other.start.getY() &&
-                    this.finish.getY() >= other.finish.getY() &&
-                    this.finish.getY() <= other.start.getY()
-            )
-        ) && (
-            (
-                this.start.getZ() <= other.start.getZ() &&
-                    this.finish.getZ() <= other.finish.getZ() &&
-                    this.finish.getZ() >= other.start.getZ()
-            ) || (
-                this.start.getZ() >= other.start.getZ() &&
-                    this.finish.getZ() >= other.finish.getZ() &&
-                    this.finish.getZ() <= other.start.getZ()
-            )
-        );
-    }
-
 }

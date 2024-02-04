@@ -27,7 +27,7 @@ public abstract class EntityMoveTrace extends Trace {
 
     @Override
     public List<Line> getLines() {
-        List<Line> ret = new ArrayList<>();
+        List<Line> ret = new ArrayList<>(3);
 
         if (this.isHypotenusal) {
             ret.add(
