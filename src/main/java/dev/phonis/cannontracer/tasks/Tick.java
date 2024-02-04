@@ -66,73 +66,15 @@ public class Tick implements Runnable {
 
                 Player player = Bukkit.getPlayer(uuid);
 
-                if (player != null) {
-                    List<Trace> traces = new ArrayList<>();
-
-                    for (LocationChange change : this.changes) {
-                        if (
-                            change.getWorld() == player.getWorld()
-                                && change.getVelocity() >= tu.getMinDistance()
-                                && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
-                        ) {
-                            if (change.getType().equals(EntityType.PRIMED_TNT) && tu.isTraceTNT()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosTNT();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosTNT();
-                                }
-
-
-                                traces.add(
-                                    new TNTTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.FALLING_BLOCK) && tu.isTraceSand()) {
-                                boolean start = false;
-                                boolean finish = false;
-
-                                if (change.getChangeType().equals(ChangeType.END)) {
-                                    finish = tu.isEndPosSand();
-                                } else if (change.getChangeType().equals(ChangeType.START)) {
-                                    start = tu.isStartPosSand();
-                                }
-
-                                traces.add(
-                                    new SandTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        start,
-                                        finish,
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            } else if (change.getType().equals(EntityType.PLAYER) && tu.isTracePlayer()) {
-                                traces.add(
-                                    new PlayerTrace(
-                                        change.getStart(),
-                                        change.getFinish(),
-                                        tu.isTickConnect(),
-                                        tu.isHypotenusal()
-                                    )
-                                );
-                            }
-                        }
-                    }
+                if (player != null && player.isOnline()) {
+                    long startBuildLineSystem = System.nanoTime();
+                    Map<LineIntercepts, LineSet> lineSystem = buildLineSystem(tu, player);
+                    Profiling.BuildLineSystem += System.nanoTime() - startBuildLineSystem;
 
                     boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
-                    long startHandleTraces = System.nanoTime();
-                    this.handleTraces(traces, tu, isSubscribed, player);
-                    Profiling.HandleTraces += System.nanoTime() - startHandleTraces;
+                    long startHandleLineSystem = System.nanoTime();
+                    this.handleLineSystem(lineSystem, tu, isSubscribed, player);
+                    Profiling.HandleLineSystem += System.nanoTime() - startHandleLineSystem;
                     if (!isSubscribed) {
                         long startSendPackets = System.nanoTime();
                         if ((tickCount + tickOffset) % 5 == 0) this.sendPackets(tu, player);
@@ -221,29 +163,107 @@ public class Tick implements Runnable {
         }
     }
 
-    private void handleTraces(List<Trace> traces, TracerUser tu, boolean isSubscribed, Player player) {
-        Map<LineEq, LineSet> culledLines = new HashMap<>();
-        int culledLineCount = 0;
+    private Map<LineIntercepts, LineSet> buildLineSystem(TracerUser tu, Player player) {
+        Map<LineIntercepts, LineSet> lineSystem = new HashMap<>();
 
-        for (Trace trace : traces) {
-            List<Line> lines = trace.getLines();
+        LocationChange lastChange = null;
+        for (LocationChange change : this.changes) {
+            if (change.equals(lastChange)) {
+                Profiling.LastChangedHits++;
+                continue;
+            } else Profiling.LastChangedMisses++;
+            lastChange = change;
 
-            for (Line line : lines) {
-                if (!culledLines.containsKey(line.getLineEq())) {
-                    culledLines.put(line.getLineEq(), new LineSet(tu.isTickConnect()));
+            if (
+                    change.getWorld() == player.getWorld()
+                            && change.getVelocity() >= tu.getMinDistance()
+                            && player.getLocation().distance(change.getStart()) <= tu.getTraceRadius()
+            ) {
+                if (tu.isTraceTNT() && change.getType().equals(EntityType.PRIMED_TNT)) {
+                    boolean start = false;
+                    boolean finish = false;
+
+                    if (change.getChangeType().equals(ChangeType.END)) {
+                        finish = tu.isEndPosTNT();
+                    } else if (change.getChangeType().equals(ChangeType.START)) {
+                        start = tu.isStartPosTNT();
+                    }
+
+                    addToLineSystem(
+                            lineSystem,
+                            new TNTTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    start,
+                                    finish,
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
+
+                } else if (tu.isTraceSand() && change.getType().equals(EntityType.FALLING_BLOCK)) {
+                    boolean start = false;
+                    boolean finish = false;
+
+                    if (change.getChangeType().equals(ChangeType.END)) {
+                        finish = tu.isEndPosSand();
+                    } else if (change.getChangeType().equals(ChangeType.START)) {
+                        start = tu.isStartPosSand();
+                    }
+
+                    addToLineSystem(
+                            lineSystem,
+                            new SandTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    start,
+                                    finish,
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
+
+                } else if (tu.isTracePlayer() && change.getType().equals(EntityType.PLAYER)) {
+                    addToLineSystem(
+                            lineSystem,
+                            new PlayerTrace(
+                                    change.getStart(),
+                                    change.getFinish(),
+                                    tu.isTickConnect(),
+                                    tu.isHypotenusal()
+                            ).getLines(),
+                            tu.isTickConnect()
+                    );
                 }
-
-                culledLineCount += culledLines.get(line.getLineEq()).add(line) ? 0 : 1;
             }
         }
+        return lineSystem;
+    }
 
-        // System.out.println("Culled lines: " + culledLineCount);
+    private void addToLineSystem(Map<LineIntercepts, LineSet> lineSystem, List<Line> lines, boolean isTickConnect) {
+        long start = System.nanoTime();
+        for (Line line : lines) {
+            LineIntercepts lineIntercepts = line.getLineIntercepts();
 
+            LineSet lineSet = lineSystem.get(lineIntercepts);
+            if (lineSet == null) {
+                lineSet = new LineSet(isTickConnect);
+                lineSystem.put(lineIntercepts,lineSet);
+            }
+            lineSet.add(line);
+        }
+        Profiling.AddToLineSystem += System.nanoTime() - start;
+    }
+
+    private void handleLineSystem(Map<LineIntercepts, LineSet> lineSystem, TracerUser tu, boolean isSubscribed, Player player) {
         List<CTLine> totalLines = new ArrayList<>();
         Set<CTArtifact> totalArtifacts = new HashSet<>();
 
-        for (LineEq lineEq : culledLines.keySet()) {
-            for (Line line : culledLines.get(lineEq)) {
+        long startUpdateParticles = System.nanoTime();
+        for (LineSet lineSet : lineSystem.values()) {
+            for (Line line : lineSet) {
                 if (isSubscribed) {
                     // ticks does not matter since it is inferred by client from NewLines/Artifacts packet
                     totalLines.add(CTAdapter.fromLine(line, (short) -1));
@@ -253,6 +273,7 @@ public class Tick implements Runnable {
                 }
             }
         }
+        Profiling.UpdateParticles += System.nanoTime() - startUpdateParticles;
 
         if (!isSubscribed) return;
 

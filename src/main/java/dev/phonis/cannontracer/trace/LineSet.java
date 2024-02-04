@@ -1,10 +1,13 @@
 package dev.phonis.cannontracer.trace;
 
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 
-public class LineSet extends ArrayList<Line> {
+public class LineSet implements Iterable<Line> {
 
+    // Used when isConnected
+    private TreeSet<Line> segments = new TreeSet<>();
+    // Used when !isConnected. When not connected shouldn't be using LineSet but don't feel like rewriting more stuff
+    private List<Line> lines = new ArrayList<>();
     private final boolean isConnected;
 
     public LineSet(boolean isConnected) {
@@ -12,55 +15,35 @@ public class LineSet extends ArrayList<Line> {
     }
 
     @Override
-    public boolean add(Line line) {
-        if (!this.isConnected) {
-            super.add(line);
-
-            return true;
-        }
-
-        Line toAdd = line;
-
-        while (true) {
-            boolean changed = false;
-            boolean contained = false;
-
-            Iterator<Line> iterator = this.iterator();
-
-            while (iterator.hasNext()) {
-                Line nextLine = iterator.next();
-
-                if (nextLine.getType().equals(toAdd.getType()) && nextLine.contains(toAdd)) {
-                    nextLine.addArtifacts(toAdd);
-
-                    contained = true;
-
-                    break;
-                } else if (nextLine.getType().equals(toAdd.getType()) && toAdd.contains(nextLine)) {
-                    toAdd.addArtifacts(nextLine);
-
-                    iterator.remove();
-                } else if (nextLine.getType().equals(toAdd.getType()) && toAdd.overlaps(nextLine)) {
-                    toAdd = toAdd.getCombinedLine(nextLine);
-
-                    iterator.remove();
-
-                    if (!changed) {
-                        changed = true;
-                    }
-                }
-            }
-
-            if (!contained) {
-                super.add(toAdd);
-            } else {
-                return false;
-            }
-
-            if (!changed) break;
-        }
-
-        return true;
+    public Iterator<Line> iterator() {
+        if (isConnected) return segments.iterator();
+        return lines.iterator();
     }
 
+    public void add(Line toAdd) {
+        if (!this.isConnected) {
+            for (Line line : lines) {
+                if (toAdd.getStart().equals(line.getStart()) && toAdd.getFinish().equals(line.getFinish())) {
+                    line.addArtifacts(toAdd);
+                    return;
+                }
+            }
+            lines.add(toAdd);
+            return;
+        }
+
+        Line floor = segments.floor(toAdd);
+        Line ceiling = segments.ceiling(toAdd);
+
+        if (floor != null && floor.overlaps(toAdd)) {
+            toAdd.merge(floor);
+            segments.remove(floor);
+        }
+        if (ceiling != null && ceiling.overlaps(toAdd)) {
+            toAdd.merge(ceiling);
+            segments.remove(ceiling);
+        }
+
+        segments.add(toAdd);
+    }
 }

@@ -35,13 +35,13 @@ public class LocationChange {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 31).
-                                              append(this.getWorld().getUID()).
-                                                                                  append(this.getStart()).
-                                                                                                             append(this.getFinish()).
-                                                                                                                                         append(this.getType()).
-                                                                                                                                                                   append(this.getChangeType()).
-                                                                                                                                                                                                   toHashCode();
+        return new HashCodeBuilder(17, 31)
+                .append(this.getWorld().getUID())
+                .append(this.getStart())
+                .append(this.getFinish())
+                .append(this.getType())
+                .append(this.getChangeType())
+                .toHashCode();
     }
 
     @Override
@@ -56,13 +56,13 @@ public class LocationChange {
 
         final LocationChange other = (LocationChange) obj;
 
-        return new EqualsBuilder().
-                                      append(this.getWorld().getUID(), other.getWorld().getUID()).
-                                                                                                     append(this.getStart(), other.getStart()).
-                                                                                                                                                  append(this.getFinish(), other.getFinish()).
-                                                                                                                                                                                                 append(this.getType(), other.getType()).
-                                                                                                                                                                                                                                            append(this.getChangeType(), other.getChangeType()).
-                                                                                                                                                                                                                                                                                                   isEquals();
+        return new EqualsBuilder()
+                .append(this.getWorld().getUID(), other.getWorld().getUID())
+                .append(this.getStart(), other.getStart())
+                .append(this.getFinish(), other.getFinish())
+                .append(this.getType(), other.getType())
+                .append(this.getChangeType(), other.getChangeType())
+                .isEquals();
     }
 
     public World getWorld() {
