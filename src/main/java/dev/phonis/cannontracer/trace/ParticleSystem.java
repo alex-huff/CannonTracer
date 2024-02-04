@@ -67,9 +67,9 @@ public class ParticleSystem {
         }
 
         public void delParticleIf(Predicate<TraceParticle> filter) {
-            if (filter.test(PlayerParticle)) PlayerParticle = null;
-            if (filter.test(SandParticle)) SandParticle = null;
-            if (filter.test(TNTParticle)) TNTParticle = null;
+            if (PlayerParticle != null && filter.test(PlayerParticle)) PlayerParticle = null;
+            if (SandParticle != null && filter.test(SandParticle)) SandParticle = null;
+            if (TNTParticle != null && filter.test(TNTParticle)) TNTParticle = null;
         }
 
         public TraceParticle getParticle(ParticleType type) {
