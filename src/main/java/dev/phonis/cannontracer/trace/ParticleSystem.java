@@ -66,10 +66,21 @@ public class ParticleSystem {
             }
         }
 
-        public void delParticleIf(Predicate<TraceParticle> filter) {
-            if (PlayerParticle != null && filter.test(PlayerParticle)) PlayerParticle = null;
-            if (SandParticle != null && filter.test(SandParticle)) SandParticle = null;
-            if (TNTParticle != null && filter.test(TNTParticle)) TNTParticle = null;
+        public List<TraceParticle> popParticleIf(Predicate<TraceParticle> filter) {
+            List<TraceParticle> removed = new ArrayList<>();
+            if (PlayerParticle != null && filter.test(PlayerParticle)) {
+                removed.add(PlayerParticle);
+                PlayerParticle = null;
+            }
+            if (SandParticle != null && filter.test(SandParticle)) {
+                removed.add(SandParticle);
+                SandParticle = null;
+            }
+            if (TNTParticle != null && filter.test(TNTParticle)) {
+                removed.add(TNTParticle);
+                TNTParticle = null;
+            }
+            return removed;
         }
 
         public TraceParticle getParticle(ParticleType type) {
@@ -159,7 +170,6 @@ public class ParticleSystem {
                 // For every particle, remove from associated point, and remove point if empty
                 for (TraceParticle particle : particles) {
                     Point point = pointTree.search(locationToArray(particle.getLocation()));
-                    if (point == null) continue; // Support partially clearing particles without cleaning up despawnQueue
                     point.delParticle(particle.getType());
                     if (point.isEmpty()) removeEmptyPoint(point.Loc);
                 }
@@ -178,16 +188,18 @@ public class ParticleSystem {
     }
 
     public void removeIf(Predicate<TraceParticle> filter) {
-        // We won't remove particles from despawnQueue bc too computationally intensive to support.
-        // despawnQueue can handle particles detached from their points.
-
+        List<TraceParticle> removedParticles = new ArrayList<>();
         List<Location> pointsToRemove = new ArrayList<>();
 
         Iterator<Point> pointIterator = activePoints.values().iterator();
         while (pointIterator.hasNext()) {
             Point point = pointIterator.next();
-            point.delParticleIf(filter);
+             removedParticles.addAll(point.popParticleIf(filter));
             if (point.isEmpty()) pointsToRemove.add(point.Loc);
+        }
+
+        for (TraceParticle particle : removedParticles) {
+            dropFromDespawnQueue(particle);
         }
 
         for (Location loc : pointsToRemove) {
