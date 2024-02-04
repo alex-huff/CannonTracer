@@ -159,6 +159,7 @@ public class ParticleSystem {
                 // For every particle, remove from associated point, and remove point if empty
                 for (TraceParticle particle : particles) {
                     Point point = pointTree.search(locationToArray(particle.getLocation()));
+                    if (point == null) continue; // Support partially clearing particles without cleaning up despawnQueue
                     point.delParticle(particle.getType());
                     if (point.isEmpty()) removeEmptyPoint(point.Loc);
                 }
@@ -177,9 +178,20 @@ public class ParticleSystem {
     }
 
     public void removeIf(Predicate<TraceParticle> filter) {
-        for (Point point : activePoints.values()) {
+        // We won't remove particles from despawnQueue bc too computationally intensive to support.
+        // despawnQueue can handle particles detached from their points.
+
+        List<Location> pointsToRemove = new ArrayList<>();
+
+        Iterator<Point> pointIterator = activePoints.values().iterator();
+        while (pointIterator.hasNext()) {
+            Point point = pointIterator.next();
             point.delParticleIf(filter);
-            if (point.isEmpty()) removeEmptyPoint(point.Loc);
+            if (point.isEmpty()) pointsToRemove.add(point.Loc);
+        }
+
+        for (Location loc : pointsToRemove) {
+            removeEmptyPoint(loc);
         }
     }
 
