@@ -134,8 +134,10 @@ public class ParticleSystem {
             // First get the closest points, then iterate over until particle list is full
             List<Point> points = pointTree.nearest(locationToArray(loc), maxParticles);
             List<TraceParticle> particles = new ArrayList<>(maxParticles + 2);
-            for (Point point : points) {
-                if (particles.size() >= maxParticles) break;
+            // For some reason, points in this list go from farthest to closest, so have to iterate backwards
+            for (int i = points.size() - 1; i >= 0; i--) {
+                if (particles.size() >= maxParticles) break; // Stop if the particle list is already full
+                Point point = points.get(i);
                 if (point.PlayerParticle != null) particles.add(point.PlayerParticle);
                 if (point.SandParticle != null) particles.add(point.SandParticle);
                 if (point.TNTParticle != null) particles.add(point.TNTParticle);
