@@ -66,10 +66,21 @@ public class ParticleSystem {
             }
         }
 
-        public void delParticleIf(Predicate<TraceParticle> filter) {
-            if (filter.test(PlayerParticle)) PlayerParticle = null;
-            if (filter.test(SandParticle)) SandParticle = null;
-            if (filter.test(TNTParticle)) TNTParticle = null;
+        public List<TraceParticle> popParticleIf(Predicate<TraceParticle> filter) {
+            List<TraceParticle> removed = new ArrayList<>();
+            if (PlayerParticle != null && filter.test(PlayerParticle)) {
+                removed.add(PlayerParticle);
+                PlayerParticle = null;
+            }
+            if (SandParticle != null && filter.test(SandParticle)) {
+                removed.add(SandParticle);
+                SandParticle = null;
+            }
+            if (TNTParticle != null && filter.test(TNTParticle)) {
+                removed.add(TNTParticle);
+                TNTParticle = null;
+            }
+            return removed;
         }
 
         public TraceParticle getParticle(ParticleType type) {
@@ -134,8 +145,10 @@ public class ParticleSystem {
             // First get the closest points, then iterate over until particle list is full
             List<Point> points = pointTree.nearest(locationToArray(loc), maxParticles);
             List<TraceParticle> particles = new ArrayList<>(maxParticles + 2);
-            for (Point point : points) {
-                if (particles.size() >= maxParticles) break;
+            // For some reason, points in this list go from farthest to closest, so have to iterate backwards
+            for (int i = points.size() - 1; i >= 0; i--) {
+                if (particles.size() >= maxParticles) break; // Stop if the particle list is already full
+                Point point = points.get(i);
                 if (point.PlayerParticle != null) particles.add(point.PlayerParticle);
                 if (point.SandParticle != null) particles.add(point.SandParticle);
                 if (point.TNTParticle != null) particles.add(point.TNTParticle);
@@ -175,9 +188,22 @@ public class ParticleSystem {
     }
 
     public void removeIf(Predicate<TraceParticle> filter) {
-        for (Point point : activePoints.values()) {
-            point.delParticleIf(filter);
-            if (point.isEmpty()) removeEmptyPoint(point.Loc);
+        List<TraceParticle> removedParticles = new ArrayList<>();
+        List<Location> pointsToRemove = new ArrayList<>();
+
+        Iterator<Point> pointIterator = activePoints.values().iterator();
+        while (pointIterator.hasNext()) {
+            Point point = pointIterator.next();
+             removedParticles.addAll(point.popParticleIf(filter));
+            if (point.isEmpty()) pointsToRemove.add(point.Loc);
+        }
+
+        for (TraceParticle particle : removedParticles) {
+            dropFromDespawnQueue(particle);
+        }
+
+        for (Location loc : pointsToRemove) {
+            removeEmptyPoint(loc);
         }
     }
 
