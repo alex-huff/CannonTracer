@@ -1,6 +1,5 @@
 package dev.phonis.cannontracer.tasks;
 
-import dev.phonis.cannontracer.Profiling;
 import net.minecraft.server.v1_8_R3.EnumParticle;
 import net.minecraft.server.v1_8_R3.PacketPlayOutWorldParticles;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
@@ -22,7 +21,6 @@ public class Tick implements Runnable {
     private static final int maxPayloadSize = 30000;
 
     private final Logger logger;
-    private final Profiling profiler;
     private final List<LocationChange> changes = new ArrayList<>();
     public final Map<Integer, EntityLocation> locations = new HashMap<>();
     private final CannonTracer cannonTracer;
@@ -31,7 +29,6 @@ public class Tick implements Runnable {
     public Tick(CannonTracer cannonTracer, Logger logger) {
         this.cannonTracer = cannonTracer;
         this.logger = logger;
-        this.profiler = new Profiling(logger);
     }
 
     public void start() {
@@ -44,9 +41,7 @@ public class Tick implements Runnable {
 
     @Override
     public void run() {
-        long runStart = System.nanoTime();
         this.processEntities();
-        Profiling.ProcessEntities += System.nanoTime() - runStart;
 
         Set<UUID> keySet = TracerUser.hmd.data.keySet();
 
@@ -67,18 +62,12 @@ public class Tick implements Runnable {
                 Player player = Bukkit.getPlayer(uuid);
 
                 if (player != null && player.isOnline()) {
-                    long startBuildLineSystem = System.nanoTime();
                     Map<LineIntercepts, LineSet> lineSystem = buildLineSystem(tu, player);
-                    Profiling.BuildLineSystem += System.nanoTime() - startBuildLineSystem;
 
                     boolean isSubscribed = CTManager.isSubscribed(player.getUniqueId());
-                    long startHandleLineSystem = System.nanoTime();
                     this.handleLineSystem(lineSystem, tu, isSubscribed, player);
-                    Profiling.HandleLineSystem += System.nanoTime() - startHandleLineSystem;
                     if (!isSubscribed) {
-                        long startSendPackets = System.nanoTime();
                         if ((tickCount + tickOffset) % 5 == 0) this.sendPackets(tu, player);
-                        Profiling.SendPackets += System.nanoTime() - startSendPackets;
                     }
                 }
             }
@@ -86,8 +75,6 @@ public class Tick implements Runnable {
 
         this.changes.clear();
         ++tickCount;
-        Profiling.Run += System.nanoTime() - runStart;
-        profiler.Tick();
     }
 
     private void processEntity(World world, Entity entity) {
@@ -141,9 +128,7 @@ public class Tick implements Runnable {
 
         PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
         ParticleSystem particleSystem = tu.getParticleSystem(playerWorld);
-        long startGetClosestParticles = System.nanoTime();
         List<TraceParticle> particles = particleSystem.getClosestParticles(player.getLocation(), tu.getMaxParticles());
-        Profiling.GetClosestParticles += System.nanoTime() - startGetClosestParticles;
         for (TraceParticle particle : particles) {
             Location pLoc = particle.getLocation();
             PacketPlayOutWorldParticles packet = new PacketPlayOutWorldParticles(
@@ -168,10 +153,7 @@ public class Tick implements Runnable {
 
         LocationChange lastChange = null;
         for (LocationChange change : this.changes) {
-            if (change.equals(lastChange)) {
-                Profiling.LastChangedHits++;
-                continue;
-            } else Profiling.LastChangedMisses++;
+            if (change.equals(lastChange)) continue;
             lastChange = change;
 
             if (
@@ -243,7 +225,6 @@ public class Tick implements Runnable {
     }
 
     private void addToLineSystem(Map<LineIntercepts, LineSet> lineSystem, List<Line> lines, boolean isTickConnect) {
-        long start = System.nanoTime();
         for (Line line : lines) {
             LineIntercepts lineIntercepts = line.getLineIntercepts();
 
@@ -254,14 +235,12 @@ public class Tick implements Runnable {
             }
             lineSet.add(line);
         }
-        Profiling.AddToLineSystem += System.nanoTime() - start;
     }
 
     private void handleLineSystem(Map<LineIntercepts, LineSet> lineSystem, TracerUser tu, boolean isSubscribed, Player player) {
         List<CTLine> totalLines = new ArrayList<>();
         Set<CTArtifact> totalArtifacts = new HashSet<>();
 
-        long startUpdateParticles = System.nanoTime();
         for (LineSet lineSet : lineSystem.values()) {
             for (Line line : lineSet) {
                 if (isSubscribed) {
@@ -273,7 +252,6 @@ public class Tick implements Runnable {
                 }
             }
         }
-        Profiling.UpdateParticles += System.nanoTime() - startUpdateParticles;
 
         if (!isSubscribed) return;
 
