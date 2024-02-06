@@ -17,7 +17,7 @@ public class Line implements Comparable<Line> {
     private final LineIntercepts lineIntercepts;
     public final Set<Artifact> artifacts = new HashSet<>();
 
-    public Line(Location p1, Location p2, ParticleType type, ParticleType startType, ParticleType finishType, OffsetType startOffsetType, OffsetType finishOffsetType, boolean connected) throws IllegalArgumentException {
+    public Line(Location p1, Location p2, ParticleType type, ParticleType p1Type, ParticleType p2Type, OffsetType p1OffsetType, OffsetType p2OffsetType, boolean connected) throws IllegalArgumentException {
         // Assign indexes and points to start/finish:
         // 1. Find first indexable dimension in specific order
         // 2. Assign points to start/finish by comparing positions in that dimension
@@ -72,12 +72,12 @@ public class Line implements Comparable<Line> {
         this.connected = connected;
         this.lineIntercepts = new LineIntercepts(direction, this.start);
 
-        if (startType != null && startOffsetType != null) {
-            this.artifacts.add(new Artifact(this.start, startType, startOffsetType));
+        if (p1Type != null && p1OffsetType != null) {
+            this.artifacts.add(new Artifact(p1, p1Type, p1OffsetType));
         }
 
-        if (finishType != null && finishOffsetType != null) {
-            this.artifacts.add(new Artifact(this.finish, finishType, finishOffsetType));
+        if (p2Type != null && p2OffsetType != null) {
+            this.artifacts.add(new Artifact(p2, p2Type, p2OffsetType));
         }
     }
 
@@ -127,7 +127,7 @@ public class Line implements Comparable<Line> {
     }
 
     private List<TraceParticle> getEndParticles(int life) {
-        List<TraceParticle> ret = new ArrayList<>();
+        List<TraceParticle> ret = new ArrayList<>(2);
 
         ret.add(new TraceParticle(this.start, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
         ret.add(new TraceParticle(this.finish, System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
@@ -135,12 +135,13 @@ public class Line implements Comparable<Line> {
         return ret;
     }
 
-    private List<TraceParticle> getLineParticles(int life) {
+    private List<TraceParticle> getLineParticles(int life, int reserveSpace) {
         double distance = this.start.distance(this.finish);
         Vector intervalDirection = this.direction.multiply(.25);
         Vector di2 = intervalDirection.clone();
 
-        List<TraceParticle> ret = this.getEndParticles(life);
+        List<TraceParticle> ret = new ArrayList<>((int) (3 + distance * 4) + reserveSpace);
+        ret.addAll((getEndParticles(life)));
 
         while (di2.length() < distance) {
             ret.add(new TraceParticle(this.start.clone().add(di2.getX(), di2.getY(), di2.getZ()), System.currentTimeMillis() + life * 50L, this.type)); // TODO convert life upstream to timestamp
@@ -151,14 +152,13 @@ public class Line implements Comparable<Line> {
     }
 
     public List<TraceParticle> getParticles(int life) {
-        List<TraceParticle> ret = new ArrayList<>();
+        List<TraceParticle> ret;
+        if (connected) ret = getLineParticles(life, artifacts.size() * 8);
+        else ret = getEndParticles(life);
 
         for (Artifact artifact : this.artifacts) {
-            ret.addAll(artifact.getParticles(life));
+            artifact.appendParticles(ret, life);
         }
-
-        if (this.connected) ret.addAll(this.getLineParticles(life));
-        else ret.addAll(this.getEndParticles(life));
 
         return ret;
     }
