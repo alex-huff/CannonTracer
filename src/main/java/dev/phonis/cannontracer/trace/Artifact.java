@@ -32,11 +32,9 @@ public class Artifact {
         return this.offsetType;
     }
 
-    public List<TraceParticle> getParticles(int life) {
-        List<TraceParticle> ret = new ArrayList<>();
-
+    public void appendParticles(List<TraceParticle> particles, int life) {
         for (Offset offset : this.getOffsetType().getOffset()) {
-            ret.add(
+            particles.add(
                 new TraceParticle(
                     this.location.clone().add(offset.getX(), offset.getY(), offset.getZ()),
                     System.currentTimeMillis() + life * 50L, // TODO convert life upstream to timestamp
@@ -44,8 +42,6 @@ public class Artifact {
                 )
             );
         }
-
-        return ret;
     }
 
     @Override
